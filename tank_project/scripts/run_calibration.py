@@ -39,8 +39,8 @@ def main():
     with open(config_dir / 'camera.yaml') as f:
         camera_config = yaml.safe_load(f)
     
-    with open(config_dir / 'arena.yaml') as f:
-        arena_config = yaml.safe_load(f)
+    with open(config_dir / 'projector.yaml') as f:
+        projector_config = yaml.safe_load(f)
     
     # Initialize camera with config
     print("[CALIB_RUNNER] Initializing camera...")
@@ -51,11 +51,21 @@ def main():
     )
     camera.start()
     
-    # Run wizard with config
+    # Run wizard with projector config
+    proj = projector_config['projector']
+    disp = projector_config['display']
+    calib = projector_config['calibration']
+    
     wizard = CalibrationWizard(
         camera, 
-        projector_width=arena_config['projector']['width'],
-        projector_height=arena_config['projector']['height']
+        projector_width=proj['width'],
+        projector_height=proj['height'],
+        margin_px=proj['margin_px'],
+        monitor_offset_x=disp['monitor_offset_x'],
+        monitor_offset_y=disp['monitor_offset_y'],
+        borderless=disp['borderless'],
+        hide_cursor=disp['hide_cursor'],
+        marker_size_m=calib['marker_size_m']
     )
     
     try:
@@ -68,8 +78,28 @@ def main():
         
         print("[CALIB_RUNNER] Saving calibration to {}".format(config_path))
         
+        # Convert numpy types to Python native types for clean YAML
+        import numpy as np
+        
+        def numpy_to_python(obj):
+            """Recursively convert numpy types to Python native types."""
+            if isinstance(obj, dict):
+                return {k: numpy_to_python(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [numpy_to_python(item) for item in obj]
+            elif isinstance(obj, np.ndarray):
+                return numpy_to_python(obj.tolist())
+            elif isinstance(obj, (np.floating, np.float64, np.float32)):
+                return float(obj)
+            elif isinstance(obj, (np.integer, np.int64, np.int32)):
+                return int(obj)
+            else:
+                return obj
+        
+        clean_results = numpy_to_python(results)
+        
         with open(config_path, 'w') as f:
-            yaml.dump(results, f, default_flow_style=False)
+            yaml.dump(clean_results, f, default_flow_style=False)
         
         print("[CALIB_RUNNER] Calibration saved successfully!")
         print("[CALIB_RUNNER] You can now run the game with: python3 run_game.py")

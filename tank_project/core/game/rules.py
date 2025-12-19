@@ -43,12 +43,30 @@ class GameRules:
         Create rules from config dictionary.
         
         Args:
-            config_dict: Parsed YAML from config/game.yaml
+            config_dict: Parsed YAML from config/game.yaml['match']
             
         Returns:
             GameRules instance with validated values
         """
-        return cls(**config_dict)
+        # Map config keys to class attributes
+        mapped = {}
+        
+        if 'duration_seconds' in config_dict:
+            mapped['match_duration_seconds'] = config_dict['duration_seconds']
+        if 'human_shot_seconds' in config_dict:
+            mapped['human_shot_cooldown'] = config_dict['human_shot_seconds']
+        if 'ai_shot_seconds' in config_dict:
+            mapped['ai_shot_cooldown'] = config_dict['ai_shot_seconds']
+        if 'max_hits' in config_dict:
+            mapped['max_hits_to_win'] = config_dict['max_hits']
+        if 'sudden_death' in config_dict:
+            mapped['sudden_death'] = config_dict['sudden_death']
+        if 'range_m' in config_dict:
+            mapped['shot_range_meters'] = config_dict['range_m']
+        if 'speed_mps' in config_dict:
+            mapped['shot_speed_mps'] = config_dict['speed_mps']
+        
+        return cls(**mapped)
     
     def validate(self):
         """

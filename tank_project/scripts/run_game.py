@@ -98,10 +98,43 @@ def camera_to_world(detection_center, transform_mgr, fallback_scale=1.0):
         return transform_mgr.camera_to_world(u, v)
     else:
         # Fallback: simple scaling from center
-        # This is approximate and should be replaced with proper calibration
         x = u * fallback_scale / 1000.0
         y = v * fallback_scale / 1000.0
         return (x, y)
+
+
+def get_robot_pose_in_world(detection_data, transform_mgr, fallback_scale=1.0):
+    """
+    Calcule (x, y, theta) complet dans le référentiel Monde.
+    
+    CRITIQUE: L'orientation pixel doit être transformée via homographie
+    sinon le robot croira avancer vers l'Est alors qu'il va vers le Nord.
+    
+    Args:
+        detection_data: Dict avec 'center' et 'orientation' (pixels)
+        transform_mgr: TransformManager instance
+        fallback_scale: Fallback si pas d'homographie
+        
+    Returns:
+        (x, y, theta) en mètres et radians (référentiel monde)
+    """
+    # 1. Centre du robot (Pixels)
+    u, v = detection_data['center']
+    
+    # 2. Point "Devant" le robot (Pixels) - utilise l'orientation pixel
+    theta_pix = detection_data['orientation']
+    dist_px = 20  # 20 pixels devant
+    u_front = u + dist_px * np.cos(theta_pix)
+    v_front = v + dist_px * np.sin(theta_pix)
+    
+    # 3. Projection dans le monde (Mètres)
+    x, y = camera_to_world((u, v), transform_mgr, fallback_scale)
+    x_front, y_front = camera_to_world((u_front, v_front), transform_mgr, fallback_scale)
+    
+    # 4. Calcul du vrai angle Monde
+    theta_world = np.arctan2(y_front - y, x_front - x)
+    
+    return x, y, theta_world
 
 
 def main():
@@ -129,17 +162,24 @@ def main():
     kalman_ai = KalmanFilter()
     kalman_human = KalmanFilter()
     
-    # 2. World
+    # 2. World - avec config robot
+    robot_config = configs['arena'].get('robot', {})
     world = WorldModel(
         arena_width_m=configs['arena']['arena']['width_m'],
         arena_height_m=configs['arena']['arena']['height_m'],
-        grid_resolution_m=configs['arena']['grid']['resolution_m']
+        grid_resolution_m=configs['arena']['grid']['resolution_m'],
+        robot_radius_m=robot_config.get('radius_m', 0.09),
+        inflation_margin_m=robot_config.get('inflation_margin_m', 0.05)
     )
+    
+    # CRITIQUE: Générer la costmap AVANT de donner la grille à l'IA
+    # Sinon le robot frôlera les murs
+    world.generate_costmap()
     
     # 3. Game
     game_engine = GameEngine(configs['game'])
     
-    # 4. IA
+    # 4. IA (utilise maintenant la costmap gonflée)
     ai_strategy = AIStrategy(configs['ia'])
     ai_strategy.set_planner(world.grid)
     
@@ -186,9 +226,18 @@ def main():
     # Fallback scale from config
     fallback_scale = configs['arena'].get('transform', {}).get('scale_m_per_av', 1.0)
     
+    # Initial game state - used to check if playing before game_engine.tick() is called
+    game_state = {'status': 'ready'}
+    tick_counter = 0
+    
+    print("[LOG] === GAME LOOP STARTING ===")
+    print(f"[LOG] Initial game_state: {game_state}")
+    print(f"[LOG] Renderer state: {renderer.match_state}")
+    
     try:
         while running:
             tick_start = time.time()
+            tick_counter += 1
             
             # --- INPUT HANDLING ---
             human_input = {
@@ -202,20 +251,40 @@ def main():
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                    print("[LOG] QUIT event received")
+                elif event.type == pygame.VIDEORESIZE:
+                    # Handle window resize
+                    renderer.handle_resize(event.w, event.h)
                 elif event.type == pygame.KEYDOWN:
+                    print(f"[LOG] KEYDOWN: {pygame.key.name(event.key)}")
                     if event.key == pygame.K_ESCAPE:
-                        running = False
+                        if renderer.fullscreen:
+                            renderer.toggle_fullscreen()
+                        else:
+                            running = False
+                    elif event.key == pygame.K_F11:
+                        renderer.toggle_fullscreen()
                     elif event.key == pygame.K_SPACE:
                         human_input['fire_request'] = True
+                        if renderer.match_state == renderer.STATE_WAITING:
+                            human_input['start_game'] = True
+                            print("[LOG] SPACE pressed -> start_game = True")
                     elif event.key == pygame.K_RETURN:
                         human_input['start_game'] = True
+                        print("[LOG] RETURN pressed -> start_game = True")
                     elif event.key == pygame.K_d:
-                        renderer.handle_keypress(event)  # Toggle debug
-                        
+                        renderer.show_debug_path = not renderer.show_debug_path
+                        print(f"[LOG] Debug path: {'ON' if renderer.show_debug_path else 'OFF'}")
+            
+            # Sync renderer state with game engine start
+            if human_input['start_game']:
+                print(f"[LOG] start_game=True, renderer.match_state={renderer.match_state}")
+                if renderer.match_state == renderer.STATE_WAITING:
+                    renderer.start_match(countdown_seconds=3.0)
+                    print("[LOG] >>> MATCH COUNTDOWN STARTED <<<")
+                         
             # Joystick Input (PS4/Xbox)
             if joystick:
-                # Axis 1: Left Stick Y (Linear V)
-                # Axis 3: Right Stick X (Angular Omega)
                 v = -joystick.get_axis(1) * max_linear_vel
                 omega = -joystick.get_axis(3) * max_angular_vel
                 
@@ -224,9 +293,9 @@ def main():
                 if abs(omega) > 0.05:
                     human_input['omega'] = omega
                 
-                if joystick.get_button(5) or joystick.get_button(0):  # R1 or X/A
+                if joystick.get_button(5) or joystick.get_button(0):
                     human_input['fire_request'] = True
-                if joystick.get_button(9):  # Options/Start
+                if joystick.get_button(9):
                     human_input['start_game'] = True
 
             # Keyboard fallback for movement (Arrow keys)
@@ -248,66 +317,89 @@ def main():
                 
             detections = aruco.detect(color_frame)
             
-            # 2. Update robot poses with proper coordinate transform
+            # 2. Update robot poses with proper coordinate transform (ANGLE CORRIGÉ)
             if 4 in detections:  # AI robot
-                d = detections[4]
-                # Transform from camera pixels to world meters
-                x, y = camera_to_world(d['center'], transform_mgr, fallback_scale)
-                theta = d['orientation']
+                x, y, theta = get_robot_pose_in_world(detections[4], transform_mgr, fallback_scale)
                 
-                # Update Kalman filter
+                # FIX: Initialiser Kalman à la première détection (évite téléportation depuis 0,0)
+                if np.all(kalman_ai.state == 0):
+                    kalman_ai.state = np.array([x, y, 0, 0, theta, 0], dtype=float)
+                
                 kalman_ai.predict()
                 kalman_ai.update((x, y, theta))
-                
-                # Get filtered pose and update world
                 filtered_pose = kalman_ai.get_pose()
                 world.update_robot_pose(4, filtered_pose)
                  
             if 5 in detections:  # Human robot
-                d = detections[5]
-                x, y = camera_to_world(d['center'], transform_mgr, fallback_scale)
-                theta = d['orientation']
+                x, y, theta = get_robot_pose_in_world(detections[5], transform_mgr, fallback_scale)
+                
+                # FIX: Initialiser Kalman à la première détection (évite téléportation depuis 0,0)
+                if np.all(kalman_human.state == 0):
+                    kalman_human.state = np.array([x, y, 0, 0, theta, 0], dtype=float)
                 
                 kalman_human.predict()
                 kalman_human.update((x, y, theta))
-                
                 filtered_pose = kalman_human.get_pose()
                 world.update_robot_pose(5, filtered_pose)
             
             # 3. Update world occupancy
             world.update_occupancy()
             
-            # 4. AI Decision
-            # Construct AI Context
-            ai_context = world.get_state_dict()
-            ai_context['ai_pose'] = world.get_robot_pose(4)
-            ai_context['human_pose'] = world.get_robot_pose(5)
-            ai_context['raycast_sys'] = game_engine.raycast  # Pass physics engine to AI
-            ai_context['game_time'] = time.time()
-            
-            ai_decision = ai_strategy.decide(ai_context)
-            
-            # 5. Game tick
+            # 4. Game tick FIRST - to get current game status
+            ai_decision = {'state': 'IDLE', 'fire_request': False, 'has_los': False, 'target_position': None}
             game_state = game_engine.tick(world, ai_decision, human_input)
             
-            # 6. Control
-            # AI Control
-            if ai_decision.get('target_position'):
-                # Use Planner Path
-                path = ai_strategy.current_path
-                v_ai, omega_ai = controller.compute_control(world.get_robot_pose(4), path)
+            # Log state changes
+            if tick_counter % 30 == 0:  # Every second
+                print(f"[LOG] Tick {tick_counter}: game_state.status={game_state.get('status')}, renderer={renderer.match_state}")
+                print(f"[LOG]   Robot4: {world.get_robot_pose(4)}, Robot5: {world.get_robot_pose(5)}")
+            
+            # 5. AI Decision (only if game is playing)
+            if game_state.get('status', 'ready') == 'playing':
+                if tick_counter % 30 == 0:
+                    print("[LOG] >>> GAME IS PLAYING - AI DECIDING <<<")
                 
-                # Send to ROS
-                ros_bridge.send_velocity_command(4, v_ai, omega_ai)
+                # Construct AI Context
+                ai_context = world.get_state_dict()
+                ai_context['ai_pose'] = world.get_robot_pose(4)
+                ai_context['human_pose'] = world.get_robot_pose(5)
+                ai_context['raycast_sys'] = game_engine.raycast
+                ai_context['game_time'] = time.time()
                 
-                # Visualization of Path
-                renderer.set_ai_path(path)
+                ai_decision = ai_strategy.decide(ai_context)
+                
+                if tick_counter % 30 == 0:
+                    print(f"[LOG]   AI decision: state={ai_decision.get('state')}, target={ai_decision.get('target_position')}")
+                    print(f"[LOG]   AI path length: {len(ai_strategy.current_path)}")
+            
+            # 6. Control (only if game is playing)
+            if game_state.get('status', 'ready') == 'playing':
+                # AI Control
+                if ai_decision.get('target_position'):
+                    path = ai_strategy.current_path
+                    if path:
+                        v_ai, omega_ai = controller.compute_control(world.get_robot_pose(4), path)
+                        ros_bridge.send_velocity_command(4, v_ai, omega_ai)
+                        renderer.set_ai_path(path)
+                        
+                        if tick_counter % 30 == 0:
+                            print(f"[LOG]   Sending cmd: v={v_ai:.3f}, omega={omega_ai:.3f}")
+                    else:
+                        ros_bridge.send_velocity_command(4, 0, 0)
+                        if tick_counter % 30 == 0:
+                            print("[LOG]   No path - sending STOP")
+                else:
+                    ros_bridge.send_velocity_command(4, 0, 0)
+                    if tick_counter % 30 == 0:
+                        print("[LOG]   No target_position - sending STOP")
+                     
+                # Human Control (for RC mode)
+                if human_input['v'] != 0 or human_input['omega'] != 0:
+                    ros_bridge.send_velocity_command(5, human_input['v'], human_input['omega'])
             else:
-                ros_bridge.send_velocity_command(4, 0, 0)  # Stop
-                 
-            # Human Control (for RC mode)
-            if human_input['v'] != 0 or human_input['omega'] != 0:
-                ros_bridge.send_velocity_command(5, human_input['v'], human_input['omega'])
+                # Not playing - ensure robots are stopped
+                ros_bridge.send_velocity_command(4, 0, 0)
+                ros_bridge.send_velocity_command(5, 0, 0)
 
             
             # 7. Render

@@ -18,8 +18,8 @@ acceleration_limits:
 control:
   # Trajectory following parameters
   lookahead_distance_m: 0.3
-  k_velocity: 1.0 # Linear velocity gain
-  k_theta: 2.0 # Angular velocity gain
+  k_velocity: 0.5 # Linear velocity gain
+  k_theta: 0.5 # Angular velocity gain
   waypoint_threshold_m: 0.1 # Distance to consider waypoint reached
 
 ros_bridge:

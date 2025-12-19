@@ -1,9 +1,0 @@
-{
-  "export_timestamp": "2025-12-06T11:43:55.713584",
-  "mode": "standalone",
-  "exported_items": [
-    "config",
-    "occupancy_grid",
-    "game_state"
-  ]
-}

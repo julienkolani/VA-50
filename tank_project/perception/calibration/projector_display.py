@@ -1,12 +1,16 @@
 """
-Projector Display for Calibration
+Projector Display for Calibration - FINAL VERSION
 
 Displays ArUco markers on projector for calibration wizard.
-Shows 4 corner markers (IDs 0-3) in windowed mode for geometric calibration.
+Features:
+- Automatic positioning on secondary screen (VGA/HDMI)
+- Borderless mode to hide window decorations
+- Hidden cursor for immersion
 
 Logs: [PROJ_DISPLAY] prefix
 """
 
+import os
 import pygame
 import cv2
 import numpy as np
@@ -16,26 +20,32 @@ from typing import Tuple, Optional
 class ProjectorDisplay:
     """
     Pygame window for projecting calibration patterns.
-    
-    Displays ArUco markers at corners for geometric calibration.
+    Forces display on secondary monitor using SDL environment variables.
     """
     
-    def __init__(self, width=1024, height=768, margin=50):
+    def __init__(self, width=1024, height=768, margin=50, monitor_offset_x=1920, monitor_offset_y=0,
+                 borderless=True, hide_cursor=True):
         """
         Initialize projector display.
         
         Args:
-            width: Display width in pixels
-            height: Display height in pixels  
+            width: Projector resolution width (ex: 1024 for VGA)
+            height: Projector resolution height (ex: 768 for VGA)
             margin: Safety margin from edges (px)
-        
-        Usage:
-            1. Window will open in normal windowed mode
-            2. Drag window to projector screen if needed
+            monitor_offset_x: X position of the projector (usually width of main screen, e.g. 1920)
+            monitor_offset_y: Y position (usually 0)
+            borderless: Use borderless window mode (NOFRAME)
+            hide_cursor: Hide mouse cursor
         """
         self.width = width
         self.height = height
         self.margin = margin
+        
+        # --- CONFIGURATION MULTI-ECRAN ---
+        self.monitor_x = monitor_offset_x
+        self.monitor_y = monitor_offset_y
+        self.borderless = borderless
+        self.hide_cursor = hide_cursor
         
         self.screen = None
         self.running = False
@@ -48,24 +58,33 @@ class ProjectorDisplay:
         self.arena_w = self.arena_x2 - self.arena_x1
         self.arena_h = self.arena_y2 - self.arena_y1
         
-        print("[PROJ_DISPLAY] Initialized: {}x{}, margin={}px".format(width, height, margin))
-        print("[PROJ_DISPLAY] Arena zone: ({},{}) -> ({},{})".format(self.arena_x1, self.arena_y1, self.arena_x2, self.arena_y2))
+        print("[PROJ_DISPLAY] Init: {}x{}, margin={}px".format(width, height, margin))
+        print("[PROJ_DISPLAY] Target Monitor Offset: X={}, Y={}".format(self.monitor_x, self.monitor_y))
     
     def start(self):
-        """Start Pygame and create window."""
+        """Start Pygame and create window on the projector."""
+        
+        # 1. LE HACK: On force la position avant l'init de l'écran
+        os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (self.monitor_x, self.monitor_y)
+        
         pygame.init()
         
-        # Always start in windowed mode
-        self.screen = pygame.display.set_mode(
-            (self.width, self.height), 
-            pygame.RESIZABLE
-        )
+        # 2. Configure window flags based on settings
+        flags = pygame.DOUBLEBUF
+        if self.borderless:
+            flags |= pygame.NOFRAME
         
-        pygame.display.set_caption("Tank Arena - Calibration Projection")
+        self.screen = pygame.display.set_mode((self.width, self.height), flags)
+        
+        # 3. IMMERSION - Hide cursor if configured
+        if self.hide_cursor:
+            pygame.mouse.set_visible(False)
+        
+        pygame.display.set_caption("Tank Arena - Projector View")
         self.running = True
         
-        print("[PROJ_DISPLAY] Display window created (windowed mode: {}x{})".format(self.width, self.height))
-        print("[PROJ_DISPLAY] Drag window to projector screen if needed")
+        mode_str = "borderless" if self.borderless else "windowed"
+        print(f"[PROJ_DISPLAY] Window opened at offset {self.monitor_x} ({mode_str})")
     
     def stop(self):
         """Close display."""
@@ -79,19 +98,18 @@ class ProjectorDisplay:
         if self.screen:
             self.screen.fill(color)
     
+    def get_events(self):
+        """
+        Return events to external controller (Wizard).
+        Use this instead of handle_events when logic is controlled outside.
+        """
+        if not self.running:
+            return []
+        return pygame.event.get()
+
     def show_corner_markers(self, marker_size_px=200, aruco_dict=cv2.aruco.DICT_4X4_100):
         """
         Display ArUco markers at 4 corners of arena.
-        
-        Args:
-            marker_size_px: Size of each marker in pixels
-            aruco_dict: ArUco dictionary to use
-            
-        Corner positions:
-            ID 0: Bottom-left
-            ID 1: Bottom-right
-            ID 2: Top-right
-            ID 3: Top-left
         """
         if not self.running:
             return
@@ -135,7 +153,6 @@ class ProjectorDisplay:
             text_rect = text.get_rect(center=(cx, cy + marker_size_px // 2 + 30))
             self.screen.blit(text, text_rect)
         
-        self.handle_events() # Keep window responsive
         # Update display
         pygame.display.flip()
         
@@ -154,18 +171,12 @@ class ProjectorDisplay:
         text_rect = text.get_rect(center=(self.width // 2, 100))
         self.screen.blit(text, text_rect)
         
-        self.handle_events() # Keep window responsive
         pygame.display.flip()
-        print("[PROJ_DISPLAY] White screen displayed for obstacle mapping")
+        print("[PROJ_DISPLAY] White screen displayed")
     
     def show_message(self, message: str, color=(255, 255, 255), bg_color=(0, 0, 0)):
         """
         Display a text message.
-        
-        Args:
-            message: Text to display
-            color: Text color (RGB)
-            bg_color: Background color (RGB)
         """
         if not self.running:
             return
@@ -179,13 +190,9 @@ class ProjectorDisplay:
         
         pygame.display.flip()
     
-
-    
-    def handle_events(self):
-        """Process pygame events (call periodically to prevent freezing)."""
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.stop()
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    self.stop()
+    def _pump_events(self):
+        """
+        Internal: Keep window responsive without consuming events.
+        Call this in long operations if not using get_events().
+        """
+        pygame.event.pump()

@@ -1,9 +1,11 @@
 # Camera Configuration
 
 realsense:
-  width: 1920 # Full HD for maximum arena coverage
-  height: 1080
-  fps: 30
+  # Résolution réduite pour détection ArUco rapide (~15ms au lieu de 50-80ms)
+  # L'homographie gère le changement d'échelle automatiquement
+  width: 848
+  height: 480
+  fps: 60 # Plus fluide pour le contrôle robot
   enable_depth: false
 
 aruco:

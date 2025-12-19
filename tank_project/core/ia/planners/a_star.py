@@ -54,9 +54,21 @@ class AStarPlanner:
         start_cell = self.grid.world_to_grid(*start_m)
         goal_cell = self.grid.world_to_grid(*goal_m)
         
+        print(f"[ASTAR] Planning from {start_m} to {goal_m}")
+        print(f"[ASTAR]   Start cell: {start_cell}, Goal cell: {goal_cell}")
+        print(f"[ASTAR]   Grid size: {self.grid.grid.shape}")
+        
         # Check bounds
-        if not self.grid._is_valid_cell(*start_cell) or not self.grid._is_valid_cell(*goal_cell):
+        if not self.grid._is_valid_cell(*start_cell):
+            print(f"[ASTAR]   ERROR: Start cell {start_cell} is OUT OF BOUNDS")
             return None
+        if not self.grid._is_valid_cell(*goal_cell):
+            print(f"[ASTAR]   ERROR: Goal cell {goal_cell} is OUT OF BOUNDS")
+            return None
+        
+        # Note: We don't check if start or goal is occupied
+        # Start: robot is already there
+        # Goal: enemy robot is there - we WANT to go there!
             
         # Initialize
         open_set = []
@@ -74,11 +86,13 @@ class AStarPlanner:
             if current == goal_cell:
                 path_cells = self._reconstruct_path(came_from, current)
                 simplified = self._simplify_path(path_cells)
-                return [self.grid.grid_to_world(r, c) for r, c in simplified]
+                result = [self.grid.grid_to_world(r, c) for r, c in simplified]
+                print(f"[ASTAR]   SUCCESS: Path found with {len(result)} waypoints")
+                return result
             
             closed_set.add(current)
             
-            for neighbor, cost in self._get_neighbors(current):
+            for neighbor, cost in self._get_neighbors(current, start_cell):
                 if neighbor in closed_set:
                     continue
                     
@@ -90,13 +104,22 @@ class AStarPlanner:
                     f = tentative_g + self._heuristic(neighbor, goal_cell)
                     f_score[neighbor] = f
                     heapq.heappush(open_set, (f, neighbor))
-                    
+        
+        print(f"[ASTAR]   FAILED: No path found (explored {len(closed_set)} cells)")
         return None
         
-    def _get_neighbors(self, cell):
-        """Get valid neighbor cells (8-connected)."""
+    def _get_neighbors(self, cell, start_cell=None, ignore_radius=5):
+        """Get valid neighbor cells (8-connected).
+        
+        Uses COSTMAP (inflated) for collision checking, not raw grid.
+        If start_cell is provided and we're within ignore_radius of it,
+        we ignore obstacles (to escape from robot's own footprint).
+        """
         row, col = cell
         neighbors = []
+        
+        # Use costmap if available (inflated obstacles), fallback to grid
+        collision_grid = getattr(self.grid, 'costmap', self.grid.grid)
         
         for dr in [-1, 0, 1]:
             for dc in [-1, 0, 1]:
@@ -107,9 +130,16 @@ class AStarPlanner:
                 
                 # Check validity
                 if self.grid._is_valid_cell(r, c):
-                    # Check occupancy directly on grid array (0=free, 1=occupied)
-                    # Threshold 0.5
-                    if self.grid.grid[r, c] < 0.5:
+                    # If near start, ignore obstacles (robot's own footprint)
+                    if start_cell is not None:
+                        dist_to_start = abs(r - start_cell[0]) + abs(c - start_cell[1])
+                        if dist_to_start <= ignore_radius:
+                            cost = 1.414 if (dr != 0 and dc != 0) else 1.0
+                            neighbors.append(((r, c), cost))
+                            continue
+                    
+                    # Check occupancy on COSTMAP (inflated, safety margins)
+                    if collision_grid[r, c] < 0.5:
                         cost = 1.414 if (dr != 0 and dc != 0) else 1.0
                         neighbors.append(((r, c), cost))
                         

@@ -81,10 +81,10 @@ Dependances principales:
 pip3 install -r requirements.txt
 
 # 2. Lancer calibration (obligatoire la premiere fois)
-python3 main.py calibration
+python3 scripts/run_calibration.py
 
 # Suivre les instructions a l'ecran:
-# - Definir zone securite
+# - Appuyer sur ESPACE pour valider chaque etape
 # - Detecter coins projetes (ArUco 0-3)
 # - Mesurer marqueur physique (ArUco 4 ou 5)
 # - Cartographier obstacles
@@ -92,8 +92,14 @@ python3 main.py calibration
 # 3. Verifier calibration sauvegardee
 cat config/arena.yaml
 
-# 4. Lancer le jeu
-python3 main.py game
+# 4. Valider visuellement l'homographie (RECOMMANDE)
+python3 scripts/show_grid.py
+# - Poser un marqueur dans un coin -> la cible cyan doit etre au bon endroit
+# - Appuyer sur D pour voir l'inflation (zones oranges)
+# - ESC pour quitter
+
+# 5. Lancer le jeu
+python3 scripts/run_game.py
 ```
 
 ### Utilisation Normale

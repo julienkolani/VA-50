@@ -56,6 +56,8 @@ class PygameRenderer:
         
         pygame.init()
         
+        self.base_width = width
+        self.base_height = height
         self.width = width
         self.height = height
         self.margin = margin
@@ -64,14 +66,8 @@ class PygameRenderer:
         self.draw_width = width - 2 * margin
         self.draw_height = height - 2 * margin
         
-        # Create display
-        if fullscreen:
-            self.screen = pygame.display.set_mode(
-                (width, height), 
-                pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF
-            )
-        else:
-            self.screen = pygame.display.set_mode((width, height))
+        # Create display - always start in resizable windowed mode for stability
+        self._create_display()
         
         pygame.display.set_caption("Tank Arena - Tactical Combat")
         
@@ -125,6 +121,65 @@ class PygameRenderer:
         self.score_flash_ai = 0
         self.score_flash_human = 0
         self.last_ai_score = 0
+        
+    def _create_display(self):
+        """Create or recreate the display with current settings."""
+        try:
+            if self.fullscreen:
+                # Try fullscreen without HWSURFACE (more compatible)
+                self.screen = pygame.display.set_mode(
+                    (self.width, self.height),
+                    pygame.FULLSCREEN
+                )
+            else:
+                # Windowed + resizable
+                self.screen = pygame.display.set_mode(
+                    (self.width, self.height),
+                    pygame.RESIZABLE
+                )
+            print(f"[VIS] Display created: {self.width}x{self.height} fullscreen={self.fullscreen}")
+        except pygame.error as e:
+            print(f"[VIS] Display error: {e}, falling back to windowed")
+            self.fullscreen = False
+            self.screen = pygame.display.set_mode(
+                (self.base_width, self.base_height),
+                pygame.RESIZABLE
+            )
+    
+    def toggle_fullscreen(self):
+        """Toggle between fullscreen and windowed mode."""
+        self.fullscreen = not self.fullscreen
+        if not self.fullscreen:
+            # Restore base dimensions when exiting fullscreen
+            self.width = self.base_width
+            self.height = self.base_height
+        else:
+            # Get current display info for fullscreen
+            info = pygame.display.Info()
+            self.width = info.current_w
+            self.height = info.current_h
+        
+        self._update_dimensions()
+        self._create_display()
+    
+    def _update_dimensions(self):
+        """Update drawing dimensions after resize."""
+        self.draw_width = self.width - 2 * self.margin
+        self.draw_height = self.height - 2 * self.margin
+        
+        # Recalculate scale
+        if self.arena_width_m > 0 and self.arena_height_m > 0:
+            scale_x = self.draw_width / self.arena_width_m
+            scale_y = self.draw_height / self.arena_height_m
+            self.scale = min(scale_x, scale_y)
+    
+    def handle_resize(self, new_width: int, new_height: int):
+        """Handle window resize event."""
+        self.width = new_width
+        self.height = new_height
+        self._update_dimensions()
+        self.screen = pygame.display.set_mode((new_width, new_height), pygame.RESIZABLE)
+        print(f"[VIS] Resized to {new_width}x{new_height}")
         self.last_human_score = 0
         
     def set_arena_dimensions(self, width_m: float, height_m: float):
@@ -158,6 +213,12 @@ class PygameRenderer:
                 # Toggle debug path visualization
                 self.show_debug_path = not self.show_debug_path
                 print("[VIS] Debug path: {}".format('ON' if self.show_debug_path else 'OFF'))
+            elif event.key == pygame.K_F11:
+                # Toggle fullscreen
+                self.toggle_fullscreen()
+            elif event.key == pygame.K_ESCAPE and self.fullscreen:
+                # Exit fullscreen on ESC
+                self.toggle_fullscreen()
     
     def start_match(self, countdown_seconds: float = 3.0):
         """Start match countdown."""

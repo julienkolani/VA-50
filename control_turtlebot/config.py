@@ -17,8 +17,8 @@ WEBSOCKET_PING_INTERVAL = 3.0    # secondes
 # Facteurs d'amplification envoyés au robot via WebSocket
 # Augmentez ces valeurs pour un robot plus réactif
 # Réduisez-les pour un comportement plus doux
-K_LINEAR = 6.0   # Amplification vitesse linéaire (défaut: 6.0)
-K_ANGULAR = 4.0  # Amplification vitesse angulaire (défaut: 6.0)
+K_LINEAR = 1.0   # Amplification vitesse linéaire (défaut: 6.0)
+K_ANGULAR = 1.0  # Amplification vitesse angulaire (défaut: 6.0)
 
 # ============================================================================
 # CONTRÔLEURS

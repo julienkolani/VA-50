@@ -30,7 +30,9 @@ class WorldModel:
     """
     
     def __init__(self, arena_width_m: float, arena_height_m: float, 
-                 grid_resolution_m: float = 0.02):
+                 grid_resolution_m: float = 0.02,
+                 robot_radius_m: float = 0.09,
+                 inflation_margin_m: float = 0.05):
         """
         Initialize world model.
         
@@ -38,9 +40,13 @@ class WorldModel:
             arena_width_m: Arena width from calibration
             arena_height_m: Arena height from calibration
             grid_resolution_m: Grid cell size
+            robot_radius_m: Physical robot radius (from config)
+            inflation_margin_m: Safety margin for pathfinding (from config)
         """
         self.arena_width = arena_width_m
         self.arena_height = arena_height_m
+        self.robot_radius_m = robot_radius_m
+        self.inflation_margin_m = inflation_margin_m
         
         # Occupancy grid
         self.grid = OccupancyGrid(arena_width_m, arena_height_m, grid_resolution_m)
@@ -50,12 +56,12 @@ class WorldModel:
             4: {  # AI robot
                 'pose': (0.0, 0.0, 0.0),  # (x, y, theta)
                 'velocity': (0.0, 0.0, 0.0),  # (vx, vy, omega)
-                'radius_m': 0.09,  # Turtlebot Burger radius
+                'radius_m': robot_radius_m,
             },
             5: {  # Human robot
                 'pose': (0.0, 0.0, 0.0),
                 'velocity': (0.0, 0.0, 0.0),
-                'radius_m': 0.09,
+                'radius_m': robot_radius_m,
             }
         }
         
@@ -92,9 +98,17 @@ class WorldModel:
         Called each frame after robot poses are updated.
         """
         robot_poses = [self.robots[rid]['pose'] for rid in [4, 5]]
-        robot_radius = self.robots[4]['radius_m']
+        self.grid.update_dynamic_obstacles(robot_poses, self.robot_radius_m)
+    
+    def generate_costmap(self):
+        """
+        Génère la costmap gonflée pour le pathfinding A*.
         
-        self.grid.update_dynamic_obstacles(robot_poses, robot_radius)
+        Appelle après avoir chargé les obstacles statiques.
+        Utilise les paramètres robot du config.
+        """
+        self.grid.inflate_static_obstacles(self.robot_radius_m, self.inflation_margin_m)
+        print(f"[WORLD] Costmap générée avec rayon={self.robot_radius_m}m, marge={self.inflation_margin_m}m")
     
     def get_robot_pose(self, robot_id: int) -> Tuple[float, float, float]:
         """Get current robot pose."""

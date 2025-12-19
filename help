@@ -1,0 +1,16 @@
+find . -type f \
+  -not -path '*/.*' \                                                
+  -not -path '*/__pycache__/*' \
+  -not -path '*/assets/*' \
+  -not -path '*/logs/*' \
+  -not -name '*.pyc' \
+  -not -name '*.png' \
+  -not -name '*.jpg' \
+  -not -name 'all_project_code.txt' \
+  | sort | while read -r file; do
+    echo "################################################################################"
+    echo "PATH: $file"
+    echo "################################################################################"
+    cat "$file"
+    echo -e "\n\n"
+  done > all_project_code.txt

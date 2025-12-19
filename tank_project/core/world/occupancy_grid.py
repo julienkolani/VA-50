@@ -105,6 +105,24 @@ class OccupancyGrid:
         
         return self.grid[row, col] >= threshold
     
+    def get_value(self, x_m: float, y_m: float) -> float:
+        """
+        Get occupancy value at a world position.
+        
+        Args:
+            x_m: X position in meters
+            y_m: Y position in meters
+            
+        Returns:
+            Occupancy value 0-100 (0=free, 100=occupied)
+        """
+        row, col = self.world_to_grid(x_m, y_m)
+        
+        if not self._is_valid_cell(row, col):
+            return 100  # Out of bounds = occupied
+        
+        return self.grid[row, col] * 100
+    
     def set_static_obstacles(self, obstacle_cells: List[Tuple[int, int]]):
         """
         Set static obstacles from calibration.
@@ -119,7 +137,55 @@ class OccupancyGrid:
             if self._is_valid_cell(row, col):
                 self.static_grid[row, col] = 1.0
         
-        self.grid = self.static_grid.copy()
+        # Par défaut, inflated_grid = static_grid (pas d'inflation)
+        self.inflated_grid = self.static_grid.copy()
+        self.grid = self.inflated_grid.copy()
+        
+        print(f"[GRID] Static obstacles set: {len(obstacle_cells)} cells")
+    
+    def inflate_static_obstacles(self, robot_radius_m: float, safety_margin_m: float = 0.0):
+        """
+        Génère une Costmap en gonflant les obstacles avec cv2.dilate (RAPIDE).
+        
+        Utilise OpenCV pour un calcul instantané même sur Raspberry Pi.
+        Crée une zone tampon autour de chaque obstacle basée sur la taille physique du robot.
+        
+        Args:
+            robot_radius_m: Rayon physique du robot (ex: 0.09m pour Turtlebot)
+            safety_margin_m: Marge de sécurité supplémentaire (ex: 0.05m)
+            
+        Logs:
+            [GRID] Inflation calculée: rayon + marge = total => kernel size
+        """
+        import cv2
+        
+        # 1. Calcul du rayon total à gonfler
+        total_inflation_m = robot_radius_m + safety_margin_m
+        
+        # 2. Conversion Mètres -> Cellules (dynamique selon résolution)
+        radius_cells = int(np.ceil(total_inflation_m / self.resolution))
+        
+        # 3. Calcul du Kernel pour OpenCV (doit être impair: 3x3, 5x5, 7x7...)
+        kernel_size = (radius_cells * 2) + 1
+        
+        print(f"[GRID] Inflation calculée:")
+        print(f"       Robot: {robot_radius_m}m + Marge: {safety_margin_m}m = {total_inflation_m}m")
+        print(f"       Cellules: {total_inflation_m:.3f}m / {self.resolution}m = {radius_cells} cells")
+        print(f"       Kernel OpenCV: {kernel_size}x{kernel_size}")
+        
+        # 4. Création du Kernel Circulaire (forme du robot)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+        
+        # 5. Application de la dilatation (ULTRA RAPIDE vs boucles Python)
+        static_u8 = (self.static_grid * 255).astype(np.uint8)
+        inflated_u8 = cv2.dilate(static_u8, kernel)
+        
+        # 6. Sauvegarde dans costmap (pour A*) et inflated_grid
+        self.costmap = (inflated_u8 > 127).astype(np.float32)
+        self.inflated_grid = self.costmap.copy()
+        
+        # Appliquer à la grille courante
+        self.grid = self.inflated_grid.copy()
     
     def update_dynamic_obstacles(self, robot_poses: List[Tuple[float, float, float]], 
                                  robot_radius_m: float):
@@ -131,11 +197,11 @@ class OccupancyGrid:
             robot_radius_m: Robot radius in meters
             
         Algorithm:
-            1. Reset grid to static obstacles
+            1. Reset grid to inflated static obstacles
             2. For each robot, mark cells in radius as occupied
         """
-        # Reset to static
-        self.grid = self.static_grid.copy()
+        # Reset to inflated static (pas static_grid brut)
+        self.grid = self.inflated_grid.copy() if hasattr(self, 'inflated_grid') else self.static_grid.copy()
         
         # Add robot footprints
         radius_cells = int(np.ceil(robot_radius_m / self.resolution))
@@ -163,3 +229,4 @@ class OccupancyGrid:
             numpy array (n_rows x n_cols) with costs 0-100
         """
         return (self.grid * 100).astype(np.uint8)
+

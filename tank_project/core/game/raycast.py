@@ -60,7 +60,7 @@ class Raycast:
         
         # Walk the grid
         current_dist = 0.0
-        step_size = self.grid.resolution_m
+        step_size = self.grid.resolution
         
         # Check every point along the ray
         while current_dist <= max_range_m:
@@ -141,7 +141,7 @@ class Raycast:
         
         # Step through grid
         curr_dist = 0
-        step = self.grid.resolution_m
+        step = self.grid.resolution
         
         while curr_dist < dist:
             cx = x1 + dx * curr_dist

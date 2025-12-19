@@ -16,7 +16,6 @@ import cv2
 import numpy as np
 import yaml
 import time
-import select
 import sys
 from typing import Tuple, List
 from ..camera.aruco_detector import ArucoDetector
@@ -31,7 +30,9 @@ class CalibrationWizard:
     Produces H_C2W transform and arena parameters.
     """
     
-    def __init__(self, camera, projector_width=1024, projector_height=768):
+    def __init__(self, camera, projector_width=1024, projector_height=768, 
+                 margin_px=50, monitor_offset_x=1920, monitor_offset_y=0,
+                 borderless=True, hide_cursor=True, marker_size_m=0.10):
         """
         Initialize calibration wizard.
         
@@ -39,62 +40,72 @@ class CalibrationWizard:
             camera: RealSenseStream instance
             projector_width: Projector resolution width
             projector_height: Projector resolution height
+            margin_px: Safety margin from edges (pixels)
+            monitor_offset_x: X position for secondary monitor
+            monitor_offset_y: Y position for secondary monitor
+            borderless: Use borderless window mode
+            hide_cursor: Hide mouse cursor
+            marker_size_m: Physical marker size in meters
         """
         self.camera = camera
         self.proj_w = projector_width
         self.proj_h = projector_height
+        self.marker_size_m = marker_size_m
         
         self.aruco = ArucoDetector()
         self.transform_mgr = TransformManager()
         
-        # Initialize projector display
+        # Initialize projector display with all config
         self.projector = ProjectorDisplay(
             width=projector_width,
             height=projector_height,
-            margin=50
+            margin=margin_px,
+            monitor_offset_x=monitor_offset_x,
+            monitor_offset_y=monitor_offset_y,
+            borderless=borderless,
+            hide_cursor=hide_cursor
         )
         
         # Calibration results
-        self.margin_px = 50
+        self.margin_px = margin_px
         self.arena_width_m = None
         self.arena_height_m = None
         self.H_C2W = None
         self.static_obstacles = []
     
-    def _wait_for_enter_key(self, message: str = "Press ENTER when ready..."):
+    def _wait_for_user_validation(self, message: str = "Appuyez sur ESPACE pour continuer..."):
         """
-        Wait for ENTER key while keeping Pygame window responsive.
+        Wait for SPACE key in Pygame window while keeping it responsive.
         
-        This prevents the "not responding" error by continuously
-        processing Pygame events while waiting for keyboard input.
+        This prevents the "not responding" error by processing all input
+        exclusively through Pygame instead of mixing console/Pygame.
         
         Args:
             message: Message to display to user
         """
-        print(message, end='', flush=True)
+        print(f"[CALIB] ATTENTE: {message}")
         
-        # Keep processing Pygame events until ENTER is pressed
+        # Show message on projector
+        self.projector.show_message(message, color=(255, 255, 255), bg_color=(50, 50, 50))
+        
+        import pygame
         waiting = True
         while waiting:
-            # Process Pygame events to keep window responsive
-            self.projector.handle_events()
-            
-            # Check if ENTER was pressed (non-blocking)
-            if sys.platform != 'win32':
-                # Unix/Linux: Use select for non-blocking input check
-                i, o, e = select.select([sys.stdin], [], [], 0.01)
-                if i:
-                    line = sys.stdin.readline()
-                    waiting = False
-                    print()  # New line after input
-            else:
-                # Windows: Use msvcrt (fallback to blocking input)
-                import msvcrt
-                if msvcrt.kbhit():
-                    key = msvcrt.getch()
-                    if key == b'\r':  # ENTER key
+            # Process all Pygame events
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    print("[CALIB] User closed window, exiting...")
+                    sys.exit(0)
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
                         waiting = False
-                        print()  # New line after input
+                        print("[CALIB] Validé !")
+                    elif event.key == pygame.K_ESCAPE:
+                        print("[CALIB] Calibration cancelled by user")
+                        sys.exit(0)
+                    elif event.key == pygame.K_q:
+                        print("[CALIB] Calibration cancelled by user")
+                        sys.exit(0)
             
             # Small sleep to prevent CPU spinning
             time.sleep(0.01)
@@ -140,7 +151,12 @@ class CalibrationWizard:
                 'projector': {
                     'width': self.proj_w,
                     'height': self.proj_h,
-                    'margin': self.margin_px
+                    'margin': self.margin_px,
+                    'margin_px': self.margin_px  # Alias for compatibility
+                },
+                'display': {
+                    'fullscreen': False,
+                    'display_index': 0
                 },
                 'arena': {
                     'width_m': self.arena_width_m,
@@ -148,7 +164,12 @@ class CalibrationWizard:
                 },
                 'transform': {
                     'H_C2W': self.H_C2W.tolist() if self.H_C2W is not None else None,
-                    'scale': scale
+                    'scale': scale,
+                    'scale_m_per_av': scale  # Alias for compatibility
+                },
+                'grid': {
+                    'resolution_m': 0.02,  # 2cm grid resolution
+                    'inflation_radius_m': 0.15  # 15cm safety margin
                 },
                 'obstacles': obstacles
             }
@@ -195,9 +216,9 @@ class CalibrationWizard:
         self.projector.show_corner_markers(marker_size_px=200)
         
         print("[CALIB] ArUco markers displayed on projector")
-        print("[CALIB] Verify that camera can see all 4 markers, then press ENTER...")
+        print("[CALIB] Verify that camera can see all 4 markers, then press SPACE...")
         
-        self._wait_for_enter_key("Press ENTER when ready...")
+        self._wait_for_user_validation("Vérifiez les 4 marqueurs et appuyez sur ESPACE")
         
         # Capture frame
         color, _ = self.camera.get_frames()
@@ -245,10 +266,13 @@ class CalibrationWizard:
     
     def _step_metric_calibration(self, H_C2AV: np.ndarray) -> float:
         """
-        Step 3: Estimate metric scale from physical marker.
+        Step 3: Estimate metric scale from physical marker using homography.
+        
+        This method uses the homography to correctly account for camera perspective,
+        ensuring accurate measurements regardless of where the marker is placed.
         
         Args:
-            H_C2AV: Homography from step 2
+            H_C2AV: Homography from step 2 (camera pixels -> arena virtual)
             
         Returns:
             scale: meters per AV unit
@@ -259,12 +283,16 @@ class CalibrationWizard:
             [CALIB] Scale: Z m / AV_unit
         """
         print("[CALIB] Step 3/4: Metric calibration (place physical marker in arena)")
-        print("Enter physical marker size in meters (e.g. 0.10): ", end='', flush=True)
-        marker_size_real = float(input())
         
-        print("[CALIB] Real marker size: {} m".format(marker_size_real))
+        # Display instructions on projector
+        self.projector.show_message("Placez le robot (ID 4 ou 5) au centre", 
+                                    color=(255, 255, 255), bg_color=(50, 50, 50))
         
-        self._wait_for_enter_key("Press ENTER when marker is placed...")
+        # Use configured marker size
+        marker_size_real = self.marker_size_m
+        print(f"[CALIB] Using marker size: {marker_size_real} m (depuis config/projector.yaml)")
+        
+        self._wait_for_user_validation("Placez le marqueur robot et appuyez sur ESPACE")
         
         # Capture frame
         color, _ = self.camera.get_frames()
@@ -274,42 +302,99 @@ class CalibrationWizard:
         
         # Find robot marker (ID 4 or 5)
         marker_data = None
+        robot_marker_id = None
         for mid in [4, 5]:
             if mid in detections:
                 marker_data = detections[mid]
+                robot_marker_id = mid
                 break
         
         if marker_data is None:
-            raise ValueError("No robot marker detected (ID 4 or 5)")
+            raise ValueError("Aucun marqueur robot détecté (ID 4 ou 5) !")
         
-        # Estimate size in AV
-        corners = marker_data['corners']
-        size_av = self.aruco.estimate_marker_size_av(corners, H_C2AV)
+        print(f"[CALIB] Marqueur robot ID {robot_marker_id} détecté")
         
-        print("[CALIB] Marker size in AV: {:.3f} units".format(size_av))
+        # ============================================================
+        # CORRECT METHOD: Use homography to transform marker corners
+        # This accounts for camera perspective distortion
+        # ============================================================
         
-        # Compute scale
-        scale = marker_size_real / size_av
+        corners_pix = marker_data['corners']  # List of 4 corner tuples in pixels
         
-        print("[CALIB] Scale: {:.3f} m / AV_unit".format(scale))
+        # Transform corners from camera pixels to Arena Virtual space using H_C2AV
+        pts_src = np.array([corners_pix], dtype=np.float32)
+        pts_av = cv2.perspectiveTransform(pts_src, H_C2AV)  # Output: AV coordinates
         
-        # Build H_C2W
+        corners_av = pts_av[0]  # Shape: (4, 2)
+        
+        # Calculate marker size in AV space (average of all 4 sides)
+        side_lengths = []
+        for i in range(4):
+            j = (i + 1) % 4
+            length = np.linalg.norm(corners_av[j] - corners_av[i])
+            side_lengths.append(length)
+        
+        size_av = np.mean(side_lengths)
+        
+        print(f"[CALIB] Taille du marqueur dans l'espace virtuel: {size_av:.4f} unités")
+        
+        # Compute scale: meters per AV unit
+        scale_m_per_av = marker_size_real / size_av
+        
+        print(f"[CALIB] ÉCHELLE VALIDÉE: 1.0 unité virtuelle = {scale_m_per_av:.4f} mètres")
+        
+        # ============================================================
+        # Build H_C2W using corner markers (IDs 0-3)
+        # ============================================================
+        
+        corner_ids = [0, 1, 2, 3]
+        av_coords = {
+            0: [0.0, 0.0],  # Bottom-left
+            1: [1.0, 0.0],  # Bottom-right
+            2: [1.0, 1.0],  # Top-right
+            3: [0.0, 1.0]   # Top-left
+        }
+        
+        src_centers = []
+        dst_coords = []
+        for mid in corner_ids:
+            if mid in detections:
+                src_centers.append(detections[mid]['center'])
+                dst_coords.append(av_coords[mid])
+        
+        if len(src_centers) < 4:
+            print(f"[CALIB] WARNING: Seulement {len(src_centers)}/4 marqueurs de coin détectés")
+        
         self.transform_mgr.set_camera_to_av(
-            np.array([d['center'] for d in detections.values()]),
-            np.array([[0,0], [1,0], [1,1], [0,1]])
+            np.array(src_centers, dtype=np.float32),
+            np.array(dst_coords, dtype=np.float32)
         )
-        self.transform_mgr.set_av_to_world_scale(scale)
+        self.transform_mgr.set_av_to_world_scale(scale_m_per_av)
         
         self.H_C2W = self.transform_mgr.H_C2W
         
-        # Estimate arena size
-        self.arena_width_m = 1.0 * scale
-        self.arena_height_m = 1.0 * scale
+        # ============================================================
+        # Calculate arena dimensions using homography-corrected scale
+        # In AV space, the arena is always 1.0 x 1.0 (unit square)
+        # So real dimensions = scale * 1.0
+        # ============================================================
         
-        print("[CALIB] H_C2W computed")
-        print("[CALIB] Calibration OK")
+        # The arena width in meters is simply the scale (since AV width = 1.0)
+        self.arena_width_m = scale_m_per_av * 1.0
         
-        return scale
+        # For height, we need to account for the projector/camera aspect ratio
+        # The AV space maps 1.0 to both width and height, but the physical
+        # arena may not be square (depends on projector aspect ratio)
+        aspect_ratio = self.proj_w / self.proj_h  # e.g., 1024/768 = 1.33
+        self.arena_height_m = self.arena_width_m / aspect_ratio
+        
+        print(f"[CALIB] Dimensions de l'arène: {self.arena_width_m:.2f}m x {self.arena_height_m:.2f}m")
+        print(f"[CALIB] Ratio d'aspect: {aspect_ratio:.2f}")
+        
+        print("[CALIB] H_C2W calculé")
+        print("[CALIB] Calibration métrique OK")
+        
+        return scale_m_per_av
     
     def _step_obstacle_mapping(self) -> List:
         """
@@ -328,9 +413,9 @@ class CalibrationWizard:
         print("[CALIB] Displaying white screen for obstacle detection...")
         self.projector.show_white_screen()
         
-        print("[CALIB] Place obstacles in arena, then press ENTER...")
+        print("[CALIB] Place obstacles in arena, then press SPACE...")
         
-        self._wait_for_enter_key()
+        self._wait_for_user_validation("Placez les obstacles et appuyez sur ESPACE")
         
         # Simplified: return empty for now
         # Full implementation would do thresholding and contour detection

@@ -48,10 +48,23 @@ client.connect(max_retries=0, retry_interval=8.0)  # Retry infini
 
 ## Contrôles
 
-| Touche    | Action                 |
-| --------- | ---------------------- |
-| `Espace`  | Démarrer match         |
-| `Flèches` | Contrôler robot humain |
-| `F`       | Tirer                  |
-| `D`       | Toggle debug paths     |
-| `ESC`     | Quitter                |
+| Touche    | Action                     |
+| --------- | -------------------------- |
+| `Espace`  | Démarrer match             |
+| `Flèches` | Contrôler robot humain     |
+| `F`       | Tirer                      |
+| `D`       | Toggle debug paths / inflation |
+| `ESC`     | Quitter                    |
+
+## Scripts Utiles
+
+```bash
+# Calibration (obligatoire 1ère fois)
+python3 scripts/run_calibration.py
+
+# Validation visuelle homographie
+python3 scripts/show_grid.py
+
+# Lancer le jeu
+python3 scripts/run_game.py
+```
