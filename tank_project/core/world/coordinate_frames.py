@@ -1,16 +1,16 @@
 """
-Coordinate Frames - Transformation Management
+Trames de Coordonnées - Gestion des Transformations
 
-Manages all coordinate transformations:
-- Camera → Arena Virtual (H_C2AV) - homography from projected corners
-- Arena Virtual → World (scaling) - metric calibration
-- Camera → World (H_C2W) - combined transform
-- World → Pygame (projection display)
-- World → Projector (overlay display)
+Gère toutes les transformations de coordonnées :
+- Caméra -> Arène Virtuelle (H_C2AV) - homographie depuis les coins projetés
+- Arène Virtuelle -> Monde (mise à l'échelle) - étalonnage métrique
+- Caméra -> Monde (H_C2W) - transformation combinée
+- Monde -> Pygame (affichage projection)
+- Monde -> Projecteur (affichage superposition)
 
-All transformations are 2D homographies or affine transforms.
+Toutes les transformations sont des homographies 2D ou des transformations affines.
 
-Logs: [TRANSFORM] prefix for all transform operations
+Logs : préfixe [TRANSFORM] pour toutes les opérations de transformation
 """
 
 import numpy as np
@@ -20,47 +20,47 @@ from typing import Tuple, List
 
 class TransformManager:
     """
-    Manages coordinate frame transformations.
+    Gère les transformations de trames de coordonnées.
     
-    Stores and applies homographies between different coordinate systems.
+    Stocke et applique les homographies entre différents systèmes de coordonnées.
     """
     
     def __init__(self):
-        """Initialize transform manager."""
-        self.H_C2AV = None  # Camera → Arena Virtual
-        self.H_AV2W = None  # Arena Virtual → World (scaling)
-        self.H_C2W = None   # Camera → World (combined)
-        self.H_W2Proj = None  # World → Projector display
+        """Initialise le gestionnaire de transformations."""
+        self.H_C2AV = None  # Caméra -> Arène Virtuelle
+        self.H_AV2W = None  # Arène Virtuelle -> Monde (échelle)
+        self.H_C2W = None   # Caméra -> Monde (combiné)
+        self.H_W2Proj = None  # Monde -> Projecteur (affichage)
         
         self.scale_m_per_av = None  # Metric scale factor
         
     def set_camera_to_av(self, src_points: np.ndarray, dst_points: np.ndarray):
         """
-        Compute H_C2AV from corner correspondences.
+        Calcule H_C2AV à partir des correspondances de coins.
         
         Args:
-            src_points: 4x2 array of camera pixel coordinates
-            dst_points: 4x2 array of arena virtual coordinates (e.g. unit square)
+            src_points: Tableau 4x2 de coordonnées pixels caméra
+            dst_points: Tableau 4x2 de coordonnées arène virtuelle (ex: carré unitaire)
             
-        Computes homography using cv2.findHomography.
+        Calcule l'homographie utilisant cv2.findHomography.
         
         Logs:
-            [TRANSFORM] H_C2AV computed from 4 corners
+            [TRANSFORM] H_C2AV calculé à partir de 4 coins
         """
         self.H_C2AV, _ = cv2.findHomography(src_points, dst_points)
         self._update_combined()
         
     def set_av_to_world_scale(self, scale: float):
         """
-        Set scaling from Arena Virtual to World (meters).
+        Définit l'échelle de l'Arène Virtuelle vers le Monde (mètres).
         
         Args:
-            scale: meters per AV unit
+            scale: mètres par unité AV
             
-        Creates scaling transform H_AV2W.
+        Crée la transformation d'échelle H_AV2W.
         
         Logs:
-            [TRANSFORM] Scale set: 1.15 m/AV_unit
+            [TRANSFORM] Echelle définie : 1.15 m/unité_AV
         """
         self.scale_m_per_av = scale
         self.H_AV2W = np.array([
@@ -77,22 +77,22 @@ class TransformManager:
             
     def camera_to_world(self, u: float, v: float) -> Tuple[float, float]:
         """
-        Transform camera pixel to world meters.
+        Transforme pixel caméra en mètres monde.
         
         Args:
-            u, v: Camera pixel coordinates
+            u, v: Coordonnées pixel caméra
             
         Returns:
-            (x, y) in meters
+            (x, y) en mètres
         """
         if self.H_C2W is None:
-            raise ValueError("H_C2W not set, run calibration first")
+            raise ValueError("H_C2W non défini, lancez l'étalonnage d'abord")
         
-        # Homogeneous coordinates
+        # Coordonnées homogènes
         p_cam = np.array([u, v, 1.0])
         p_world = self.H_C2W @ p_cam
         
-        # Normalize
+        # Normalisation
         x = p_world[0] / p_world[2]
         y = p_world[1] / p_world[2]
         
@@ -103,51 +103,51 @@ class TransformManager:
                           proj_width_px: int, proj_height_px: int,
                           margin_px: int = 50) -> Tuple[int, int]:
         """
-        Transform world position to projector pixel.
+        Transforme position monde en pixel projecteur.
         
         Args:
-            x, y: World position in meters
-            arena_width_m, arena_height_m: Arena size
-            proj_width_px, proj_height_px: Projector resolution
-            margin_px: Safe zone margin
+            x, y: Position monde en mètres
+            arena_width_m, arena_height_m: Taille arène
+            proj_width_px, proj_height_px: Résolution projecteur
+            margin_px: Marge de sécurité
             
         Returns:
-            (px, py) projector pixel coordinates
+            (px, py) coordonnées pixel projecteur
         """
-        # Scale to projector (with margin)
+        # Mise à l'échelle vers projecteur (avec marge)
         draw_width = proj_width_px - 2 * margin_px
         draw_height = proj_height_px - 2 * margin_px
         
         scale_x = draw_width / arena_width_m
         scale_y = draw_height / arena_height_m
-        scale = min(scale_x, scale_y)  # Maintain aspect ratio
+        scale = min(scale_x, scale_y)  # Conserve le ratio d'aspect
         
         px = margin_px + int(x * scale)
-        py = margin_px + int((arena_height_m - y) * scale)  # Flip Y (pygame origin top-left)
+        py = margin_px + int((arena_height_m - y) * scale)  # Inverse Y (origine pygame en haut à gauche)
         
         return (px, py)
     
     def batch_camera_to_world(self, points_cam: np.ndarray) -> np.ndarray:
         """
-        Transform multiple camera points to world.
+        Transforme plusieurs points caméra vers monde.
         
         Args:
-            points_cam: Nx2 array of camera coordinates
+            points_cam: Tableau Nx2 de coordonnées caméra
             
         Returns:
-            Nx2 array of world coordinates
+            Tableau Nx2 de coordonnées monde
         """
         if self.H_C2W is None:
-            raise ValueError("H_C2W not set")
+            raise ValueError("H_C2W non défini")
         
-        # Add homogeneous coordinate
+        # Ajoute coordonnée homogène
         ones = np.ones((points_cam.shape[0], 1))
         points_h = np.hstack([points_cam, ones])
         
         # Transform
         points_world_h = (self.H_C2W @ points_h.T).T
         
-        # Normalize
+        # Normalisation
         points_world = points_world_h[:, :2] / points_world_h[:, 2:3]
         
         return points_world

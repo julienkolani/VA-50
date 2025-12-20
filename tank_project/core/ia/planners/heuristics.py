@@ -1,13 +1,13 @@
 """
-Heuristics - Cost Functions for Path Planning
+Heuristiques - Fonctions de Coût pour la Planification de Chemin
 
-Provides heuristic functions for A* and other planners:
-- Euclidean distance (standard, admissible)
-- Manhattan distance (grid-based)
-- Diagonal distance (Chebyshev + diagonal cost)
-- Custom costmap-aware heuristics
+Fournit des fonctions heuristiques pour A* et autres planificateurs :
+- Distance Euclidienne (standard, admissible)
+- Distance de Manhattan (basée grille)
+- Distance Diagonale (Chebyshev + coût diagonal)
+- Heuristiques personnalisées sensibles à la costmap
 
-All heuristics must be admissible (never overestimate).
+Toutes les heuristiques doivent être admissibles (ne jamais surestimer).
 """
 
 import numpy as np
@@ -16,55 +16,55 @@ from typing import Tuple
 
 def euclidean_distance(cell1: Tuple[int, int], cell2: Tuple[int, int]) -> float:
     """
-    Euclidean distance heuristic.
+    Heuristique de distance Euclidienne.
     
-    Most accurate for free space planning.
+    La plus précise pour la planification en espace libre.
     
     Args:
-        cell1: (row, col)
-        cell2: (row, col)
+        cell1: (lig, col)
+        cell2: (lig, col)
         
     Returns:
-        Euclidean distance
+        Distance Euclidienne
     """
     return np.sqrt((cell1[0] - cell2[0])**2 + (cell1[1] - cell2[1])**2)
 
 
 def manhattan_distance(cell1: Tuple[int, int], cell2: Tuple[int, int]) -> float:
     """
-    Manhattan (L1) distance.
+    Distance de Manhattan (L1).
     
-    Good for 4-connected grids.
+    Bon pour les grilles 4-connexes.
     
     Args:
-        cell1: (row, col)
-        cell2: (row, col)
+        cell1: (lig, col)
+        cell2: (lig, col)
         
     Returns:
-        Manhattan distance
+        Distance de Manhattan
     """
     return abs(cell1[0] - cell2[0]) + abs(cell1[1] - cell2[1])
 
 
 def diagonal_distance(cell1: Tuple[int, int], cell2: Tuple[int, int]) -> float:
     """
-    Diagonal distance (Chebyshev + diagonal cost).
+    Distance Diagonale (Chebyshev + coût diagonal).
     
-    Good for 8-connected grids with diagonal cost √2.
+    Bon pour les grilles 8-connexes avec coût diagonal √2.
     
     Args:
-        cell1: (row, col)
-        cell2: (row, col)
+        cell1: (lig, col)
+        cell2: (lig, col)
         
     Returns:
-        Diagonal-aware distance
+        Distance prenant en compte les diagonales
     """
     dx = abs(cell1[0] - cell2[0])
     dy = abs(cell1[1] - cell2[1])
     
-    # Cost: move diagonal (√2 ≈ 1.414) then straight (1.0)
-    D = 1.0  # Straight cost
-    D2 = 1.414  # Diagonal cost
+    # Coût : mouvement diagonal (√2 ≈ 1.414) puis droit (1.0)
+    D = 1.0  # Coût droit
+    D2 = 1.414  # Coût diagonal
     
     return D * (dx + dy) + (D2 - 2*D) * min(dx, dy)
 
@@ -73,22 +73,22 @@ def costmap_aware_heuristic(cell1: Tuple[int, int],
                             cell2: Tuple[int, int],
                             costmap) -> float:
     """
-    Costmap-aware heuristic.
+    Heuristique sensible à la costmap.
     
-    Incorporates obstacle proximity into heuristic.
-    Still admissible if base is euclidean.
+    Incorpore la proximité des obstacles dans l'heuristique.
+    Reste admissible si la base est euclidienne.
     
     Args:
-        cell1: (row, col)
-        cell2: (row, col)
-        costmap: OccupancyGrid with inflation
+        cell1: (lig, col)
+        cell2: (lig, col)
+        costmap: OccupancyGrid avec inflation
         
     Returns:
-        Modified heuristic favoring safer paths
+        Heuristique modifiée favorisant les chemins plus sûrs
     """
     base_h = euclidean_distance(cell1, cell2)
     
-    # Optional: add small cost penalty based on average costmap value
-    # Must remain admissible!
+    # Optionnel : ajouter une petite pénalité basée sur la valeur moyenne de la costmap
+    # Doit rester admissible !
     
     return base_h

@@ -104,7 +104,7 @@ class DebugDraw:
         for row in range(grid.n_rows):
             for col in range(grid.n_cols):
                 if grid.grid[row, col] > 0.5:
-                    # Convertir cell → monde → pixels
+                    # Convertir cell -> monde -> pixels
                     x_m, y_m = grid.grid_to_world(row, col)
                     px, py = self.mapping.world_to_projector(x_m, y_m)
                     

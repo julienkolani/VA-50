@@ -1,17 +1,17 @@
 """
-Raycast - Shot Collision Detection
+Raycast - Détection de Collision de Tir
 
-Implements ray-based collision detection for laser shots:
-- Cast ray from shooter position in direction theta
-- Check intersections with:
-  * Static obstacles (walls, blocks)
-  * Dynamic obstacles (robots)
-- Return first hit or None
+Implémente la détection de collision par lancer de rayons pour les tirs laser :
+- Lance un rayon depuis la position du tireur dans la direction theta
+- Vérifie les intersections avec :
+  * Obstacles statiques (murs, blocs)
+  * Obstacles dynamiques (robots)
+- Retourne le premier impact ou None
 
-Uses the occupancy grid from core/world for obstacle detection.
-Implements DDA (Digital Differential Analyzer) for efficient grid traversal.
+Utilise la grille d'occupation de core/world pour la détection d'obstacles.
+Implémente DDA (Digital Differential Analyzer) pour une traversée de grille efficace.
 
-Logs: [RAYCAST] Hit detected / Miss
+Logs : [RAYCAST] Impact détecté / Manqué
 """
 
 import numpy as np
@@ -20,58 +20,58 @@ from typing import Optional, Tuple
 
 class Raycast:
     """
-    Efficient ray-based collision detection for shots.
+    Détection de collision efficace basée sur les rayons pour les tirs.
     
-    Uses DDA algorithm to traverse occupancy grid and detect hits.
+    Utilise l'algorithme DDA pour traverser la grille d'occupation et détecter les impacts.
     """
     
     def __init__(self, occupancy_grid):
         """
-        Initialize raycast with world occupancy grid.
+        Initialise le raycast avec la grille d'occupation du monde.
         
         Args:
-            occupancy_grid: OccupancyGrid instance from core/world
+            occupancy_grid: Instance OccupancyGrid de core/world
         """
         self.grid = occupancy_grid
     
     
     def cast_shot(self, start_pos, theta, max_range_m):
         """
-        Cast a shot ray and detect collisions.
+        Lance un rayon de tir et détecte les collisions.
         
         Args:
-            start_pos: (x, y) shooter position in meters
-            theta: Shot direction in radians
-            max_range_m: Maximum shot range
+            start_pos: (x, y) position du tireur en mètres
+            theta: Direction du tir en radians
+            max_range_m: Portée maximale du tir
             
         Returns:
             dict: {
                 'hit': bool,
                 'target': 'robot4' | 'robot5' | 'obstacle' | None,
-                'impact_point': (x, y) in meters or None,
-                'distance': float in meters
+                'impact_point': (x, y) en mètres ou None,
+                'distance': float en mètres
             }
         """
         start_x, start_y = start_pos
         
-        # Ray direction vector
+        # Vecteur direction du rayon
         dx = np.cos(theta)
         dy = np.sin(theta)
         
-        # Walk the grid
+        # Parcours de grille
         current_dist = 0.0
         step_size = self.grid.resolution
         
-        # Check every point along the ray
+        # Vérifie chaque point le long du rayon
         while current_dist <= max_range_m:
             curr_x = start_x + dx * current_dist
             curr_y = start_y + dy * current_dist
             
-            # 1. Check map boundaries
+            # 1. Vérifie les limites de la carte
             if not (0 <= curr_x <= self.grid.width_m and 0 <= curr_y <= self.grid.height_m):
                 break
                 
-            # 2. Check static obstacles using occupancy grid
+            # 2. Vérifie les obstacles statiques utilisant la grille d'occupation
             grid_val = self.grid.get_value(curr_x, curr_y)
             if grid_val > 50:  # Threshold for occupied
                 return {
@@ -92,44 +92,44 @@ class Raycast:
 
     def check_robot_collision(self, start_pos, theta, max_range_m, target_pos, target_radius_m=0.15):
         """
-        Check if ray hits a specific robot.
+        Vérifie si le rayon touche un robot spécifique.
         
         Args:
-            start_pos: (x,y) shooter
+            start_pos: (x,y) tireur
             theta: angle
-            max_range_m: max range
-            target_pos: (x,y) target center
-            target_radius_m: target hit radius
+            max_range_m: portée max
+            target_pos: (x,y) centre cible
+            target_radius_m: rayon de touche cible
         """
-        # Vector from shooter to target
+        # Vecteur du tireur à la cible
         sx, sy = start_pos
         tx, ty = target_pos
         
         val_x = tx - sx
         val_y = ty - sy
         
-        # Project target center onto ray
-        # Ray vector: (cos, sin)
+        # Projette le centre de la cible sur le rayon
+        # Vecteur rayon : (cos, sin)
         ray_x, ray_y = np.cos(theta), np.sin(theta)
         
-        # Dot product
+        # Produit scalaire
         t = val_x * ray_x + val_y * ray_y
         
-        # Closest point on ray to target center
+        # Point le plus proche sur le rayon vers le centre de la cible
         closest_x = sx + t * ray_x
         closest_y = sy + t * ray_y
         
-        # Distance checks
-        if t < 0: return False # Target behind shooter
-        if t > max_range_m: return False # Target out of range
+        # Vérification des distances
+        if t < 0: return False # Cible derrière le tireur
+        if t > max_range_m: return False # Cible hors de portée
         
-        # Distance from closest point to target center
+        # Distance du point le plus proche au centre de la cible
         dist_sq = (closest_x - tx)**2 + (closest_y - ty)**2
         
         return dist_sq <= (target_radius_m**2)
 
     def _check_line_of_sight(self, pos1, pos2):
-        """Check if LOS is clear between two points (simple version)."""
+        """Vérifie si la ligne de vue (LOS) est dégagée entre deux points (version simple)."""
         x1, y1 = pos1
         x2, y2 = pos2
         
@@ -139,7 +139,7 @@ class Raycast:
         dx = (x2 - x1) / dist
         dy = (y2 - y1) / dist
         
-        # Step through grid
+        # Pas à pas dans la grille
         curr_dist = 0
         step = self.grid.resolution
         

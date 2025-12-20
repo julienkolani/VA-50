@@ -1,22 +1,22 @@
 """
-Game State - Complete Game Status
+État du Jeu - Statut Complet du Jeu
 
-Maintains the complete state of the ongoing match:
-- Robot scores (hits given/received)
-- Match timer (elapsed, remaining)
-- Cooldown timers (next allowed shot for each robot)
-- Game status (calibration, playing, paused, finished)
-- Winner information
+Maintient l'état complet du match en cours :
+- Scores des robots (touches données/reçues)
+- Chronomètre du match (écoulé, restant)
+- Chronomètres de recharge (prochain tir autorisé pour chaque robot)
+- Statut du jeu (calibration, jeu, pause, fini)
+- Information sur le vainqueur
 
-This is a pure data structure with no logic.
-All state modifications are done by game_engine.py.
+Ceci est une structure de données pure sans logique.
+Toutes les modifications d'état sont faites par game_engine.py.
 """
 
 from dataclasses import dataclass
 from enum import Enum
 
 class GameStatus(Enum):
-    """Game lifecycle states"""
+    """États du cycle de vie du jeu"""
     CALIBRATION = "calibration"
     READY = "ready"
     PLAYING = "playing"
@@ -26,51 +26,51 @@ class GameStatus(Enum):
 
 @dataclass
 class RobotScore:
-    """Per-robot scoring information"""
+    """Information de score par robot"""
     robot_id: int
-    hits_inflicted: int = 0  # Hits this robot scored on enemy
-    hits_received: int = 0   # Hits this robot took
-    shots_fired: int = 0     # Total shots attempted
+    hits_inflicted: int = 0  # Touches marquées par ce robot sur l'ennemi
+    hits_received: int = 0   # Touches reçues par ce robot
+    shots_fired: int = 0     # Total des tirs tentés
     
 
 @dataclass
 class GameState:
     """
-    Complete game state snapshot.
+    Instantané complet de l'état du jeu.
     
-    This is the single source of truth for game status.
-    Immutable between ticks - game_engine creates new state each tick.
+    Ceci est la source unique de vérité pour le statut du jeu.
+    Immuable entre les ticks - game_engine crée un nouvel état à chaque tick.
     """
     status: GameStatus
     
-    # Time tracking
-    match_start_time: float  # Unix timestamp
-    current_time: float      # Unix timestamp
-    match_duration: float    # Total match length in seconds
+    # Suivi du temps
+    match_start_time: float  # Timestamp Unix
+    current_time: float      # Timestamp Unix
+    match_duration: float    # Durée totale match en secondes
     
     # Scores
-    robot_4_score: RobotScore  # AI robot
-    robot_5_score: RobotScore  # Human robot
+    robot_4_score: RobotScore  # Robot IA
+    robot_5_score: RobotScore  # Robot Humain
     
-    # Cooldowns (Unix timestamps)
+    # Temps de recharge (Timestamps Unix)
     next_shot_robot_4: float
     next_shot_robot_5: float
     
-    # Winner info (None if ongoing)
-    winner: str = None  # "AI", "HUMAN", or "DRAW"
+    # Info vainqueur (None si en cours)
+    winner: str = None  # "AI", "HUMAN", ou "DRAW"
     
     @property
     def time_remaining(self):
-        """Calculate remaining match time in seconds."""
+        """Calcule le temps restant en secondes."""
         elapsed = self.current_time - self.match_start_time
         return max(0, self.match_duration - elapsed)
     
     @property
     def can_shoot_ai(self):
-        """Check if AI cooldown allows shooting."""
+        """Vérifie si le cooldown IA permet de tirer."""
         return self.current_time >= self.next_shot_robot_4
     
     @property
     def can_shoot_human(self):
-        """Check if human cooldown allows shooting."""
+        """Vérifie si le cooldown humain permet de tirer."""
         return self.current_time >= self.next_shot_robot_5

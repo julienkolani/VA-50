@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """
-Integrated UI — Version modernisée avec panneau,
+Interface graphique integree pour TurtleBot Controller.
+
+Ce module fournit une interface utilisateur moderne basee sur Pygame
+pour controler le TurtleBot. Il inclut un panneau de simulation visuelle,
+un panneau de statistiques, et supporte les controleurs clavier et PS3.
+
+Classes:
+    IntegratedUI: Interface graphique principale avec simulation et stats.
 """
 
 import pygame
@@ -15,7 +22,7 @@ from visual_robot import VisualRobot
 
 
 # ============================================================
-# 🔧 Outils internes : interpolation / pulse
+# Outils internes : interpolation / pulse
 # ============================================================
 
 def lerp(a, b, t):
@@ -111,10 +118,10 @@ class IntegratedUI:
             try:
                 return pygame.font.Font(path, size)
             except FileNotFoundError:
-                print(f"⚠️ Police introuvable : {path} → utilisation de la police par défaut.")
+                print(f"[UI] Police introuvable : {path} - utilisation de la police par defaut.")
                 return pygame.font.Font(None, size)
 
-        # Polices Roboto (si absentes → police par défaut)
+        # Polices Roboto (si absentes -> police par defaut)
         self.font_titre = safe_font("assets/Roboto-Bold.ttf", config.FONT_SIZE_TITLE)
         self.font_sub = safe_font("assets/Roboto-Medium.ttf", config.FONT_SIZE_SUBTITLE)
         self.font_normal = safe_font("assets/Roboto-Regular.ttf", config.FONT_SIZE_NORMAL)
@@ -204,8 +211,8 @@ class IntegratedUI:
 
         y += 40
 
-        # Mode de contrôle
-        mode = "🎮 Manette PS3" if self.control_mode == "ps3" else "⌨️ Clavier"
+        # Mode de controle
+        mode = "Manette PS3" if self.control_mode == "ps3" else "Clavier"
         mcol = self.accent_bright if self.control_mode == "ps3" else self.text_color
 
         self.screen.blit(
@@ -280,7 +287,7 @@ class IntegratedUI:
         cx, cy = self.sim_rect.center
 
         # Titre
-        mode_icon = "🎮" if self.control_mode == "ps3" else "⌨️"
+        mode_icon = "[PS3]" if self.control_mode == "ps3" else "[KB]"
         surf = self.font_titre.render(f"MICRO-SIMULATION {mode_icon}", True, self.accent_bright)
         rect = surf.get_rect(center=(cx, self.sim_rect.y + 40))
         self.screen.blit(surf, rect)
@@ -313,7 +320,7 @@ class IntegratedUI:
 
         if abs(angular_z) > 0.01:
             col = self.accent_color
-            direction = "Gauche ↺" if angular_z > 0 else "Droite ↻"
+            direction = "Gauche" if angular_z > 0 else "Droite"
             msg = f"Rotation {direction}: {abs(angular_z):.3f} rad/s"
             surf = self.font_normal.render(msg, True, col)
             self.screen.blit(surf,
@@ -342,7 +349,7 @@ class IntegratedUI:
 
         # Connexion WebSocket
         if not self.ws_client.start():
-            print("❌ Impossible de se connecter au ROS Bridge.")
+            print("[UI] Impossible de se connecter au ROS Bridge.")
             return
 
         running = True

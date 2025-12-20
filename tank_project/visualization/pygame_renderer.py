@@ -1,14 +1,14 @@
 """
-Pygame Renderer - Modern Gaming Visualization Engine
+Moteur de Rendu Pygame - Visualisation de Jeu Moderne
 
-Premium rendering with:
-- Strategic HUD placement (corners, never obscures ArUcos in center)
-- Match start/end screens with animations
-- Debug path visualization (toggle with 'D' key)
-- Dynamic scoring with visual feedback
-- Modern design (gradients, shadows, premium fonts)
+Rendu premium avec :
+- Placement stratégique du HUD (coins, n'obscurcit jamais les ArUcos au centre)
+- Écrans de début/fin de match avec animations
+- Visualisation du chemin de débogage (bascule avec la touche 'D')
+- Score dynamique avec retour visuel
+- Design moderne (dégradés, ombres, polices premium)
 
-Logs: [VIS] prefix
+Logs : préfixe [VIS]
 """
 
 import pygame
@@ -21,16 +21,16 @@ from datetime import datetime
 
 class PygameRenderer:
     """
-    Modern gaming renderer with tactical HUD design.
+    Moteur de rendu de jeu moderne avec design HUD tactique.
     
-    Features:
-    - Corner-based HUD (doesn't obstruct center ArUcos)
-    - Match states (waiting, countdown, playing, finished)
-    - Debug path visualization (toggle D)
-    - Score animations and visual effects
+    Fonctionnalités :
+    - HUD basé sur les coins (n'obstrue pas les ArUcos centraux)
+    - États du match (attente, compte à rebours, jeu, terminé)
+    - Visualisation chemin de débogage (bascule D)
+    - Animations de score et effets visuels
     """
     
-    # Match states
+    # États du match
     STATE_WAITING = "waiting"
     STATE_COUNTDOWN = "countdown"
     STATE_PLAYING = "playing"
@@ -39,16 +39,16 @@ class PygameRenderer:
     def __init__(self, width: int = 1024, height: int = 768, margin: int = 50, 
                  fullscreen: bool = True, display_index: int = 0):
         """
-        Initialize renderer with modern gaming UI.
+        Initialise le rendu avec une UI de jeu moderne.
         
         Args:
-            width: Projector width
-            height: Projector height
-            margin: Safe zone margin
-            fullscreen: If True, fullscreen mode
-            display_index: 0 = primary, 1 = projector
+            width: Largeur projecteur
+            height: Hauteur projecteur
+            margin: Marge zone sûre
+            fullscreen: Si True, mode plein écran
+            display_index: 0 = principal, 1 = projecteur
         """
-        # Set display position BEFORE pygame.init()
+        # Définit la position d'affichage AVANT pygame.init()
         if display_index == 1:
             os.environ['SDL_VIDEO_WINDOW_POS'] = f'{width},0'
         elif display_index == 0:
@@ -66,12 +66,12 @@ class PygameRenderer:
         self.draw_width = width - 2 * margin
         self.draw_height = height - 2 * margin
         
-        # Create display - always start in resizable windowed mode for stability
+        # Crée l'affichage - démarre toujours en mode fenêtré redimensionnable pour la stabilité
         self._create_display()
         
-        pygame.display.set_caption("Tank Arena - Tactical Combat")
+        pygame.display.set_caption("Tank Arena - Combat Tactique")
         
-        # Fonts - Premium hierarchy
+        # Polices - Hiérarchie premium
         pygame.font.init()
         self.font_title = pygame.font.SysFont('Arial Black', 72, bold=True)
         self.font_large = pygame.font.SysFont('Arial Black', 48, bold=True)
@@ -79,7 +79,7 @@ class PygameRenderer:
         self.font_small = pygame.font.SysFont('Arial', 24)
         self.font_tiny = pygame.font.SysFont('Courier', 16)
         
-        # Premium color palette
+        # Palette de couleurs premium
         self.BG_DARK = (20, 20, 25)
         self.BG_LIGHT = (240, 240, 245)
         
@@ -137,9 +137,9 @@ class PygameRenderer:
                     (self.width, self.height),
                     pygame.RESIZABLE
                 )
-            print(f"[VIS] Display created: {self.width}x{self.height} fullscreen={self.fullscreen}")
+            print(f"[VIS] Affichage créé : {self.width}x{self.height} plein écran={self.fullscreen}")
         except pygame.error as e:
-            print(f"[VIS] Display error: {e}, falling back to windowed")
+            print(f"[VIS] Erreur affichage : {e}, retour au mode fenêtré")
             self.fullscreen = False
             self.screen = pygame.display.set_mode(
                 (self.base_width, self.base_height),
@@ -179,7 +179,7 @@ class PygameRenderer:
         self.height = new_height
         self._update_dimensions()
         self.screen = pygame.display.set_mode((new_width, new_height), pygame.RESIZABLE)
-        print(f"[VIS] Resized to {new_width}x{new_height}")
+        print(f"[VIS] Redimensionné à {new_width}x{new_height}")
         self.last_human_score = 0
         
     def set_arena_dimensions(self, width_m: float, height_m: float):
@@ -212,7 +212,7 @@ class PygameRenderer:
             if event.key == pygame.K_d:
                 # Toggle debug path visualization
                 self.show_debug_path = not self.show_debug_path
-                print("[VIS] Debug path: {}".format('ON' if self.show_debug_path else 'OFF'))
+                print("[VIS] Chemin debug : {}".format('ON' if self.show_debug_path else 'OFF'))
             elif event.key == pygame.K_F11:
                 # Toggle fullscreen
                 self.toggle_fullscreen()
@@ -295,14 +295,14 @@ class PygameRenderer:
         title_rect = title.get_rect(center=(self.width // 2, self.height // 2 - 100))
         self.screen.blit(title, title_rect)
         
-        # Subtitle
-        subtitle = self.font_medium.render("Tactical Robot Combat", True, self.TEXT_LIGHT)
+        # Sous-titre
+        subtitle = self.font_medium.render("Combat de Robots Tactique", True, self.TEXT_LIGHT)
         subtitle_rect = subtitle.get_rect(center=(self.width // 2, self.height // 2))
         self.screen.blit(subtitle, subtitle_rect)
         
         # Instruction
         pulse = int(128 + 127 * math.sin(pygame.time.get_ticks() / 500))
-        instruction = self.font_small.render("Press START to begin", True, (pulse, pulse, pulse))
+        instruction = self.font_small.render("Appuyez sur START pour commencer", True, (pulse, pulse, pulse))
         instr_rect = instruction.get_rect(center=(self.width // 2, self.height // 2 + 100))
         self.screen.blit(instruction, instr_rect)
     
@@ -354,8 +354,8 @@ class PygameRenderer:
         robot_4_pose = world_state.get('robot_4_pose', (0, 0, 0))
         robot_5_pose = world_state.get('robot_5_pose', (0, 0, 0))
         
-        self._draw_robot(robot_4_pose, self.AI_PRIMARY, "AI", self.AI_GLOW)
-        self._draw_robot(robot_5_pose, self.HUMAN_PRIMARY, "HUMAN", self.HUMAN_GLOW)
+        self._draw_robot(robot_4_pose, self.AI_PRIMARY, "IA", self.AI_GLOW)
+        self._draw_robot(robot_5_pose, self.HUMAN_PRIMARY, "HUMAIN", self.HUMAN_GLOW)
         
         # Lock-on indicator
         if game_state.get('ai_has_los', False):
@@ -481,8 +481,8 @@ class PygameRenderer:
         pygame.draw.line(self.screen, self.HUMAN_PRIMARY, 
                         (px, py + radius + 5), (px, py + radius + 10), 3)
         
-        # "LOCKED" text
-        locked_text = self.font_tiny.render("LOCKED", True, self.HUMAN_PRIMARY)
+        # Texte "VERROUILLÉ"
+        locked_text = self.font_tiny.render("VERROUILLÉ", True, self.HUMAN_PRIMARY)
         self.screen.blit(locked_text, (px - 25, py + radius + 15))
     
     def _draw_modern_hud(self, game_state: Dict):
@@ -507,10 +507,10 @@ class PygameRenderer:
             min(255, self.AI_PRIMARY[2] + flash_alpha)
         )
         
-        self._draw_score_corner(30, 30, "AI ROBOT", ai_score, ai_health, 
+        self._draw_score_corner(30, 30, "ROBOT IA", ai_score, ai_health, 
                                ai_bg_color, self.AI_DARK, "left")
         
-        # --- TOP-RIGHT: HUMAN SCORE ---
+        # --- HAUT-DROITE : SCORE HUMAIN ---
         human_score = game_state.get('robot_5_hits_inflicted', 0)
         human_health = game_state.get('robot_5_hits_received', 0)
         
@@ -521,10 +521,10 @@ class PygameRenderer:
             min(255, self.HUMAN_PRIMARY[2] + flash_alpha)
         )
         
-        self._draw_score_corner(self.width - 30, 30, "HUMAN", human_score, human_health,
+        self._draw_score_corner(self.width - 30, 30, "HUMAIN", human_score, human_health,
                                human_bg_color, self.HUMAN_DARK, "right")
         
-        # --- TOP-CENTER: TIMER (minimal) ---
+        # --- HAUT-CENTRE : MINUTEUR (minimal) ---
         time_remaining = game_state.get('time_remaining_s', 0)
         mins = int(time_remaining // 60)
         secs = int(time_remaining % 60)
@@ -540,18 +540,18 @@ class PygameRenderer:
         
         self.screen.blit(timer_surface, timer_rect)
         
-        # --- BOTTOM-LEFT: Match info ---
+        # --- BAS-GAUCHE : Info match ---
         status = game_state.get('ai_state', 'IDLE')
-        info_text = f"AI: {status}"
+        info_text = f"IA : {status}"
         info_surface = self.font_small.render(info_text, True, self.TEXT_GRAY)
         self.screen.blit(info_surface, (30, self.height - 60))
         
-        # --- BOTTOM-RIGHT: Debug hint ---
+        # --- BAS-DROITE : Indice debug ---
         if self.show_debug_path:
-            debug_text = "[D] Hide Path"
+            debug_text = "[D] Masquer Chemin"
             debug_color = self.ACCENT_GREEN
         else:
-            debug_text = "[D] Show AI Path"
+            debug_text = "[D] Afficher Chemin IA"
             debug_color = self.TEXT_GRAY
         
         debug_surface = self.font_small.render(debug_text, True, debug_color)
@@ -587,8 +587,8 @@ class PygameRenderer:
         score_surface = self.font_large.render(str(score), True, self.TEXT_LIGHT)
         self.screen.blit(score_surface, (panel_x + 15, y + 40))
         
-        # Hits taken
-        health_text = f"Hits: {health}"
+        # Coups reçus
+        health_text = f"Coups : {health}"
         health_surface = self.font_tiny.render(health_text, True, self.TEXT_LIGHT)
         self.screen.blit(health_surface, (panel_x + 15, y + 95))
     
@@ -610,12 +610,12 @@ class PygameRenderer:
         """Render match end screen with results."""
         self.screen.fill(self.BG_DARK)
         
-        # Winner announcement
+        # Annonce vainqueur
         if self.winner == "AI":
-            winner_text = "AI VICTORY"
+            winner_text = "VICTOIRE IA"
             winner_color = self.AI_GLOW
         else:
-            winner_text = "HUMAN VICTORY"
+            winner_text = "VICTOIRE HUMAIN"
             winner_color = self.HUMAN_GLOW
         
         winner_surface = self.font_title.render(winner_text, True, winner_color)
@@ -631,15 +631,15 @@ class PygameRenderer:
         scores_rect = scores_surface.get_rect(center=(self.width // 2, self.height // 2))
         self.screen.blit(scores_surface, scores_rect)
         
-        # Labels
-        ai_label = self.font_medium.render("AI", True, self.AI_PRIMARY)
-        human_label = self.font_medium.render("HUMAN", True, self.HUMAN_PRIMARY)
+        # Étiquettes
+        ai_label = self.font_medium.render("IA", True, self.AI_PRIMARY)
+        human_label = self.font_medium.render("HUMAIN", True, self.HUMAN_PRIMARY)
         
         self.screen.blit(ai_label, (self.width // 2 - 150, self.height // 2 + 60))
         self.screen.blit(human_label, (self.width // 2 + 50, self.height // 2 + 60))
         
-        # Restart hint
-        restart_text = "Press R to restart"
+        # Indice redémarrage
+        restart_text = "Appuyez sur R pour redémarrer"
         restart_surface = self.font_small.render(restart_text, True, self.TEXT_GRAY)
         restart_rect = restart_surface.get_rect(center=(self.width // 2, self.height // 2 + 150))
         self.screen.blit(restart_surface, restart_rect)

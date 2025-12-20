@@ -1,15 +1,15 @@
 """
-Strategy - High-Level AI Controller
+Stratégie - Contrôleur IA Haut-Niveau
 
-Orchestrates the AI system:
-1. Read world state
-2. Execute behavior tree
-3. Trigger path planning if needed
-4. Return AI decisions (target, fire_request)
+Orchestre le système IA :
+1. Lit l'état du monde
+2. Exécute l'arbre de comportement
+3. Déclenche la planification de chemin si nécessaire
+4. Retourne les décisions IA (cible, demande_tir)
 
-This is the main entry point for the AI subsystem.
+Ceci est le point d'entrée principal pour le sous-système IA.
 
-Logs: [AI] State: ATTACK/FLANK/RETREAT, target=(x,y), fire=True/False
+Logs : [AI] État : ATTACK/FLANK/RETREAT, cible=(x,y), tir=True/False
 """
 
 import numpy as np
@@ -21,61 +21,61 @@ from .planners.a_star import AStarPlanner
 
 class AIStrategy:
     """
-    Main AI controller.
+    Contrôleur IA principal.
     
-    Combines behavior tree + path planning to produce AI actions.
+    Combine arbre de comportement + planification de chemin pour produire les actions IA.
     """
     
     def __init__(self, config):
         """
-        Initialize AI strategy.
+        Initialise la stratégie IA.
         
         Args:
-            config: AI configuration from config/ia.yaml
+            config: Configuration IA depuis config/ia.yaml
         """
         self.config = config
         self.behavior_tree = BehaviorTreeExecutor()
         self.planner = None  # Set when world is available
         
-        # AI state
+        # État IA
         self.current_path = []
         self.current_waypoint_idx = 0
         self.state = "IDLE"  # ATTACK, FLANK, RETREAT, HUNT
         
-        # Decision rate control
+        # Contrôle du taux de décision
         self.decision_interval = config.get('decision_rate', {}).get('replan_interval', 10)
         self.tick_count = 0
         
-        print("[AI] Strategy initialized")
+        print("[AI] Stratégie initialisée")
         
     def set_planner(self, occupancy_grid):
         """
-        Initialize path planner with occupancy grid.
+        Initialise le planificateur de chemin avec la grille d'occupation.
         
         Args:
-            occupancy_grid: OccupancyGrid from core/world
+            occupancy_grid: OccupancyGrid depuis core/world
         """
         heuristic = self.config.get('strategy', {}).get('heuristic', 'euclidean')
         self.planner = AStarPlanner(occupancy_grid, heuristic)
-        print("[AI] Path planner initialized with {} heuristic".format(heuristic))
+        print("[AI] Planificateur chemin initialisé avec heuristique {}".format(heuristic))
         
     def decide(self, world_state: Dict) -> Dict:
         """
-        Main decision function called each game tick.
+        Fonction de décision principale appelée à chaque tick.
         
         Args:
             world_state: {
                 'ai_pose': (x, y, theta),
                 'human_pose': (x, y, theta),
-                'occupancy_grid': grid object,
-                'raycast_sys': raycast object,
+                'occupancy_grid': objet grille,
+                'raycast_sys': objet raycast,
                 'game_time': float,
             }
             
         Returns:
             {
-                'target_position': (x, y) or None,
-                'target_orientation': theta or None,
+                'target_position': (x, y) ou None,
+                'target_orientation': theta ou None,
                 'fire_request': bool,
                 'state': str (ATTACK/FLANK/RETREAT),
                 'has_los': bool,
@@ -86,7 +86,7 @@ class AIStrategy:
         ai_pose = world_state.get('ai_pose')
         enemy_pose = world_state.get('human_pose')
         
-        # Default Output
+        # Sortie par défaut
         decision = {
             'target_position': None,
             'target_orientation': None,
@@ -98,7 +98,7 @@ class AIStrategy:
         if ai_pose is None or enemy_pose is None:
             return decision
 
-        # Prepare context for behavior tree
+        # Prépare le contexte pour l'arbre de comportement
         context = {
             'ai_pose': ai_pose,
             'human_pose': enemy_pose,
@@ -106,10 +106,10 @@ class AIStrategy:
             'raycast_sys': world_state.get('raycast_sys'),
         }
         
-        # Execute behavior tree
+        # Exécute l'arbre de comportement
         bt_output = self.behavior_tree.execute(context)
         
-        # Copy behavior tree decisions
+        # Copie les décisions de l'arbre comportemental
         decision['fire_request'] = bt_output.get('fire_request', False)
         decision['has_los'] = bt_output.get('has_los', False)
         decision['state'] = bt_output.get('state', 'IDLE')
@@ -117,17 +117,17 @@ class AIStrategy:
         
         target_pos = bt_output.get('target_position')
         
-        # Path Planning - only replan periodically or when target changes significantly
+        # Planification de Chemin - replanifie seulement périodiquement ou si la cible change significativement
         if target_pos is not None and self.planner:
             should_replan = False
             
-            # Replan if no path or on interval
+            # Replanifie si pas de chemin ou sur intervalle
             if not self.current_path:
                 should_replan = True
             elif self.tick_count % self.decision_interval == 0:
                 should_replan = True
             elif len(self.current_path) > 0:
-                # Replan if target moved significantly
+                # Replanifie si la cible a bougé significativement
                 last_goal = self.current_path[-1]
                 dist_to_new = np.linalg.norm(
                     np.array(last_goal) - np.array(target_pos)
@@ -140,22 +140,22 @@ class AIStrategy:
                 if path:
                     self.current_path = path
                     self.current_waypoint_idx = 0
-                    print("[AI] New path planned: {} waypoints".format(len(path)))
+                    print("[AI] Nouveau chemin planifié : {} waypoints".format(len(path)))
         
         decision['target_position'] = target_pos
         
-        # Log decision
-        if self.tick_count % 30 == 0:  # Log every second at 30 FPS
+        # Log décision
+        if self.tick_count % 30 == 0:  # Log chaque seconde à 30 FPS
             self._log_decision(decision)
         
         return decision
     
     def _log_decision(self, decision):
-        """Log current AI decision."""
+        """Log la décision IA actuelle."""
         target = decision.get('target_position')
         target_str = "({:.2f}, {:.2f})".format(target[0], target[1]) if target else "None"
         
-        print("[AI] State: {}, target={}, fire={}, LOS={}".format(
+        print("[AI] État : {}, cible={}, tir={}, LOS={}".format(
             decision['state'],
             target_str,
             decision['fire_request'],
@@ -164,12 +164,12 @@ class AIStrategy:
     
     def get_next_waypoint(self) -> Optional[Tuple[float, float]]:
         """
-        Get next waypoint from current path.
+        Obtient le prochain waypoint du chemin actuel.
         
-        Used by control module for trajectory following.
+        Utilisé par le module de contrôle pour le suivi de trajectoire.
         
         Returns:
-            (x, y) of next waypoint, or None if no path
+            (x, y) du prochain waypoint, ou None si pas de chemin
         """
         if self.current_waypoint_idx >= len(self.current_path):
             return None
@@ -177,17 +177,17 @@ class AIStrategy:
     
     def advance_waypoint(self):
         """
-        Mark current waypoint as reached, move to next.
+        Marque le waypoint actuel comme atteint, passe au suivant.
         
-        Called by control module when waypoint is reached.
+        Appelé par le module de contrôle quand le waypoint est atteint.
         """
         self.current_waypoint_idx += 1
         
     def get_full_path(self) -> list:
         """
-        Get complete current path for visualization.
+        Obtient le chemin complet actuel pour la visualisation.
         
         Returns:
-            List of (x, y) waypoints
+            Liste de waypoints (x, y)
         """
         return self.current_path

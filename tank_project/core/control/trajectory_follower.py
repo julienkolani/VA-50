@@ -1,15 +1,15 @@
 """
-Trajectory Follower - Path Following Controller
+Suiveur de Trajectoire - Contrôleur de Suivi de Chemin
 
-Implements trajectory following for waypoint navigation:
-- Pure pursuit controller
-- PID-based heading control
-- Dynamic waypoint advancement
-- Obstacle avoidance reactions
+Implémente le suivi de trajectoire pour la navigation par points de passage :
+- Contrôleur Pure Pursuit
+- Contrôle de cap basé sur PID
+- Avancement dynamique des points de passage
+- Réactions d'évitement d'obstacles
 
-Takes a path (list of waypoints) and current pose, outputs (v, ω).
+Prend un chemin (liste de waypoints) et la pose actuelle, sort (v, ω).
 
-Logs: [CTRL] Following waypoint (x,y), distance: Dm
+Logs : [CTRL] Suivi waypoint (x,y), distance : Dm
 """
 
 import numpy as np
@@ -18,22 +18,22 @@ from typing import Tuple, List, Optional
 
 class TrajectoryFollower:
     """
-    Trajectory following controller for waypoint navigation.
+    Contrôleur de suivi de trajectoire pour la navigation par points.
     
-    Uses pure pursuit algorithm for smooth path following.
+    Utilise l'algorithme Pure Pursuit pour un suivi fluide.
     """
     
     def __init__(self, config):
         """
-        Initialize trajectory follower.
+        Initialise le suiveur de trajectoire.
         
         Args:
-            config: Controller parameters from config/robot.yaml:
-                - lookahead_distance: Pure pursuit lookahead
-                - k_v: Linear velocity gain
-                - k_theta: Angular velocity gain
-                - max_linear_vel: Max v in m/s
-                - max_angular_vel: Max ω in rad/s
+            config: Paramètres du contrôleur depuis config/robot.yaml :
+                - lookahead_distance: Distance de visée Pure Pursuit
+                - k_v: Gain de vitesse linéaire
+                - k_theta: Gain de vitesse angulaire
+                - max_linear_vel: V max en m/s
+                - max_angular_vel: ω max en rad/s
         """
         self.lookahead_distance = config.get('lookahead_distance', 0.3)
         self.k_v = config.get('k_v', 1.0)
@@ -47,22 +47,22 @@ class TrajectoryFollower:
                        current_pose: Tuple[float, float, float],
                        waypoints: List[Tuple[float, float]]) -> Tuple[float, float]:
         """
-        Compute control commands to follow waypoints.
+        Calcule les commandes de contrôle pour suivre les waypoints.
         
         Args:
-            current_pose: (x, y, theta) current robot pose
-            waypoints: List of (x, y) waypoints in meters
+            current_pose: (x, y, theta) pose actuelle du robot
+            waypoints: Liste de waypoints (x, y) en mètres
             
         Returns:
-            (v, omega): linear and angular velocities
+            (v, omega): vitesses linéaire et angulaire
             
-        Algorithm (Pure Pursuit):
-            1. Find lookahead point on path
-            2. Calculate curvature to reach lookahead point
-            3. Compute v and ω from curvature
-            4. Clamp to velocity limits
+        Algorithme (Pure Pursuit) :
+            1. Trouve le point de visée (lookahead) sur le chemin
+            2. Calcule la courbure pour atteindre ce point
+            3. Calcule v et ω à partir de la courbure
+            4. Limite aux vitesses max
             
-        Logs:
+        Logs :
             [CTRL] Target waypoint (x,y), distance: Dm, heading error: θ rad
         """
         if not waypoints:
@@ -70,16 +70,16 @@ class TrajectoryFollower:
         
         x, y, theta = current_pose
         
-        # Find target waypoint (lookahead)
+        # Trouve le waypoint cible (lookahead)
         target_wp = self._get_lookahead_point(current_pose, waypoints)
         
         if target_wp is None:
             return (0.0, 0.0)
         
-        # Calculate control
+        # Calcule le contrôle
         v, omega = self._pure_pursuit(current_pose, target_wp)
         
-        # Clamp velocities
+        # Limite les vitesses
         v = np.clip(v, -self.max_linear_vel, self.max_linear_vel)
         omega = np.clip(omega, -self.max_angular_vel, self.max_angular_vel)
         
@@ -87,29 +87,29 @@ class TrajectoryFollower:
     
     def _get_lookahead_point(self, pose, waypoints):
         """
-        Find the waypoint at lookahead distance.
+        Trouve le waypoint à la distance de visée.
         
         Args:
-            pose: Current robot pose
-            waypoints: List of waypoints
+            pose: Pose actuelle du robot
+            waypoints: Liste de waypoints
             
         Returns:
-            (x, y) target waypoint
+            (x, y) waypoint cible
         """
         x, y, _ = pose
         
-        # Find first waypoint beyond lookahead distance
+        # Trouve le premier waypoint au-delà de la distance de visée
         for wp in waypoints:
             dist = np.sqrt((wp[0] - x)**2 + (wp[1] - y)**2)
             if dist >= self.lookahead_distance:
                 return wp
         
-        # If all waypoints are closer, return last one
+        # Si tous les waypoints sont plus proches, retourne le dernier
         return waypoints[-1] if waypoints else None
     
     def _pure_pursuit(self, pose, target):
         """
-        Pure pursuit control law.
+        Loi de commande Pure Pursuit.
         
         Args:
             pose: (x, y, theta)
@@ -121,30 +121,30 @@ class TrajectoryFollower:
         x, y, theta = pose
         x_t, y_t = target
         
-        # Calculate distance and angle to target
+        # Calcule distance et angle vers la cible
         dx = x_t - x
         dy = y_t - y
         distance = np.sqrt(dx**2 + dy**2)
         
-        # Target angle
+        # Angle cible
         target_theta = np.arctan2(dy, dx)
         
-        # Heading error
+        # Erreur de cap
         theta_error = self._normalize_angle(target_theta - theta)
         
-        # Linear velocity proportional to distance
+        # Vitesse linéaire proportionnelle à la distance
         v = self.k_v * distance
         
-        # Angular velocity proportional to heading error
+        # Vitesse angulaire proportionnelle à l'erreur de cap
         omega = self.k_theta * theta_error
         
-        # Reduce linear velocity when turning
+        # Réduit la vitesse linéaire quand on tourne
         v *= np.cos(theta_error)
         
         return (v, omega)
     
     def _normalize_angle(self, angle):
-        """Normalize angle to [-pi, pi]."""
+        """Normalise l'angle entre [-pi, pi]."""
         while angle > np.pi:
             angle -= 2 * np.pi
         while angle < -np.pi:
@@ -153,14 +153,14 @@ class TrajectoryFollower:
     
     def is_waypoint_reached(self, pose, waypoint):
         """
-        Check if current waypoint is reached.
+        Vérifie si le waypoint actuel est atteint.
         
         Args:
             pose: (x, y, theta)
             waypoint: (x, y)
             
         Returns:
-            True if within threshold
+            True si dans le seuil
         """
         x, y, _ = pose
         dist = np.sqrt((waypoint[0] - x)**2 + (waypoint[1] - y)**2)

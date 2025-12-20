@@ -1,14 +1,14 @@
 """
-Game Rules - Configuration & Constants
+Règles du Jeu - Configuration & Constantes
 
-Defines all game parameters and rules:
-- Shot cooldowns (AI vs Human)
-- Match duration
-- Win conditions
-- Scoring rules
+Définit tous les paramètres et règles du jeu :
+- Temps de recharge des tirs (IA vs Humain)
+- Durée du match
+- Conditions de victoire
+- Règles de score
 
-All values are loaded from config/game.yaml.
-This module provides validation and defaults.
+Toutes les valeurs sont chargées depuis config/game.yaml.
+Ce module fournit la validation et les valeurs par défaut.
 """
 
 from dataclasses import dataclass
@@ -17,36 +17,36 @@ from dataclasses import dataclass
 @dataclass
 class GameRules:
     """
-    Game rules and parameters.
+    Règles et paramètres du jeu.
     
-    Loaded from config/game.yaml but provides sensible defaults.
+    Chargé depuis config/game.yaml mais fournit des valeurs par défaut raisonnables.
     """
     
-    # Match timing
-    match_duration_seconds: float = 180.0  # 3 minutes default
+    # Chronométrage du match
+    match_duration_seconds: float = 180.0  # Défaut 3 minutes
     
-    # Shot cooldowns
-    human_shot_cooldown: float = 5.0  # Human can shoot every 5 seconds
-    ai_shot_cooldown: float = 3.0     # AI can shoot every 3 seconds
+    # Temps de recharge des tirs
+    human_shot_cooldown: float = 5.0  # L'humain peut tirer toutes les 5 secondes
+    ai_shot_cooldown: float = 3.0     # L'IA peut tirer toutes les 3 secondes
     
-    # Win conditions
-    max_hits_to_win: int = 10         # First to 10 hits wins
-    sudden_death: bool = False        # Continue after time expires?
+    # Conditions de victoire
+    max_hits_to_win: int = 10         # Le premier à 10 touches gagne
+    sudden_death: bool = False        # Continuer après l'expiration du temps ?
     
-    # Shot mechanics
-    shot_range_meters: float = 5.0    # Maximum effective range
-    shot_speed_mps: float = 10.0      # Shot travel speed (for animation)
+    # Mécanique de tir
+    shot_range_meters: float = 5.0    # Portée effective maximale
+    shot_speed_mps: float = 10.0      # Vitesse du tir (pour l'animation)
     
     @classmethod
     def from_config(cls, config_dict):
         """
-        Create rules from config dictionary.
+        Crée les règles à partir du dictionnaire de configuration.
         
         Args:
-            config_dict: Parsed YAML from config/game.yaml['match']
+            config_dict: YAML analysé depuis config/game.yaml['match']
             
         Returns:
-            GameRules instance with validated values
+            Instance GameRules avec valeurs validées
         """
         # Map config keys to class attributes
         mapped = {}
@@ -70,10 +70,10 @@ class GameRules:
     
     def validate(self):
         """
-        Validate rule consistency.
+        Valide la cohérence des règles.
         
         Raises:
-            ValueError: If rules are inconsistent or invalid
+            ValueError: Si les règles sont incohérentes ou invalides
         """
         if self.match_duration_seconds <= 0:
             raise ValueError("Match duration must be positive")

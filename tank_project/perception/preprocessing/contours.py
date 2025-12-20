@@ -27,7 +27,7 @@ def find_contours(binary_image: np.ndarray) -> List[np.ndarray]:
         cv2.CHAIN_APPROX_SIMPLE
     )
     
-    print("[CONTOURS] Found {} contours".format(len(contours)))
+    print("[CONTOURS] Trouvé {} contours".format(len(contours)))
     
     return contours
 
@@ -52,7 +52,7 @@ def filter_contours_by_area(contours: List[np.ndarray],
         if min_area <= area <= max_area:
             filtered.append(cnt)
     
-    print("[CONTOURS] Filtered {} -> {} contours".format(len(contours), len(filtered)))
+    print("[CONTOURS] Filtré {} -> {} contours".format(len(contours), len(filtered)))
     
     return filtered
 

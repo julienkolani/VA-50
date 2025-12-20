@@ -1,15 +1,15 @@
 """
-A* Path Planning Algorithm
+Algorithme de Planification A*
 
-Implements A* pathfinding on the occupancy grid:
-- Finds shortest collision-free path
-- Uses configurable heuristics
-- Handles dynamic obstacles (robots)
-- Returns waypoint list in meters
+Implémente la recherche de chemin A* sur la grille d'occupation :
+- Trouve le chemin le plus court sans collision
+- Utilise des heuristiques configurables
+- Gère les obstacles dynamiques (robots)
+- Retourne une liste de waypoints en mètres
 
-The planner works on the inflated costmap from core/world.
+Le planificateur travaille sur la carte de coût (costmap) gonflée de core/world.
 
-Logs: [ASTAR] Path found: N waypoints, length: M meters
+Logs : [ASTAR] Chemin trouvé : N waypoints, longueur : M mètres
 """
 
 import numpy as np
@@ -20,24 +20,24 @@ from .heuristics import euclidean_distance, manhattan_distance, diagonal_distanc
 
 class AStarPlanner:
     """
-    A* pathfinding on 2D occupancy grid.
+    Recherche de chemin A* sur grille d'occupation 2D.
     
-    Finds optimal path from start to goal avoiding obstacles.
+    Trouve le chemin optimal du départ au but en évitant les obstacles.
     """
     
     def __init__(self, occupancy_grid, heuristic='euclidean'):
         """
-        Initialize A* planner.
+        Initialise le planificateur A*.
         
         Args:
-            occupancy_grid: OccupancyGrid from core/world
-            heuristic: 'euclidean', 'manhattan', or 'diagonal'
+            occupancy_grid: OccupancyGrid depuis core/world
+            heuristic: 'euclidean', 'manhattan', ou 'diagonal'
         """
         self.grid = occupancy_grid
         self.heuristic_name = heuristic
         
     def _heuristic(self, cell1, cell2):
-        """Calculate heuristic cost."""
+        """Calcule le coût heuristique."""
         if self.heuristic_name == 'manhattan':
             return manhattan_distance(cell1, cell2)
         elif self.heuristic_name == 'diagonal':
@@ -49,28 +49,28 @@ class AStarPlanner:
     def plan(self, start_m: Tuple[float, float], 
              goal_m: Tuple[float, float]) -> Optional[List[Tuple[float, float]]]:
         """
-        Find path from start to goal.
+        Trouve un chemin du départ au but.
         """
         start_cell = self.grid.world_to_grid(*start_m)
         goal_cell = self.grid.world_to_grid(*goal_m)
         
-        print(f"[ASTAR] Planning from {start_m} to {goal_m}")
-        print(f"[ASTAR]   Start cell: {start_cell}, Goal cell: {goal_cell}")
-        print(f"[ASTAR]   Grid size: {self.grid.grid.shape}")
+        print(f"[ASTAR] Planification de {start_m} vers {goal_m}")
+        print(f"[ASTAR]   Cellule départ : {start_cell}, Cellule but : {goal_cell}")
+        print(f"[ASTAR]   Taille grille : {self.grid.grid.shape}")
         
-        # Check bounds
+        # Vérification des limites
         if not self.grid._is_valid_cell(*start_cell):
-            print(f"[ASTAR]   ERROR: Start cell {start_cell} is OUT OF BOUNDS")
+            print(f"[ASTAR]   ERREUR : Cellule départ {start_cell} HORS LIMITES")
             return None
         if not self.grid._is_valid_cell(*goal_cell):
-            print(f"[ASTAR]   ERROR: Goal cell {goal_cell} is OUT OF BOUNDS")
+            print(f"[ASTAR]   ERREUR : Cellule but {goal_cell} HORS LIMITES")
             return None
         
-        # Note: We don't check if start or goal is occupied
-        # Start: robot is already there
-        # Goal: enemy robot is there - we WANT to go there!
+        # Note : On ne vérifie pas si le départ ou le but est occupé
+        # Départ : le robot est déjà là
+        # But : le robot ennemi est là - on VEUT aller là-bas !
             
-        # Initialize
+        # Initialisation
         open_set = []
         heapq.heappush(open_set, (0, start_cell))
         
@@ -87,7 +87,7 @@ class AStarPlanner:
                 path_cells = self._reconstruct_path(came_from, current)
                 simplified = self._simplify_path(path_cells)
                 result = [self.grid.grid_to_world(r, c) for r, c in simplified]
-                print(f"[ASTAR]   SUCCESS: Path found with {len(result)} waypoints")
+                print(f"[ASTAR]   SUCCES : Chemin trouvé avec {len(result)} waypoints")
                 return result
             
             closed_set.add(current)
@@ -105,20 +105,20 @@ class AStarPlanner:
                     f_score[neighbor] = f
                     heapq.heappush(open_set, (f, neighbor))
         
-        print(f"[ASTAR]   FAILED: No path found (explored {len(closed_set)} cells)")
+        print(f"[ASTAR]   ECHEC : Aucun chemin trouvé (exploré {len(closed_set)} cellules)")
         return None
         
     def _get_neighbors(self, cell, start_cell=None, ignore_radius=5):
-        """Get valid neighbor cells (8-connected).
+        """Obtient les cellules voisines valides (8-connexité).
         
-        Uses COSTMAP (inflated) for collision checking, not raw grid.
-        If start_cell is provided and we're within ignore_radius of it,
-        we ignore obstacles (to escape from robot's own footprint).
+        Utilise la COSTMAP (gonflée) pour la vérification de collision, pas la grille brute.
+        Si start_cell est fourni et qu'on est dans ignore_radius,
+        on ignore les obstacles (pour s'échapper de l'empreinte du robot).
         """
         row, col = cell
         neighbors = []
         
-        # Use costmap if available (inflated obstacles), fallback to grid
+        # Utilise la costmap si disponible (obstacles gonflés), sinon grille
         collision_grid = getattr(self.grid, 'costmap', self.grid.grid)
         
         for dr in [-1, 0, 1]:
@@ -128,9 +128,9 @@ class AStarPlanner:
                     
                 r, c = row + dr, col + dc
                 
-                # Check validity
+                # Vérifie la validité
                 if self.grid._is_valid_cell(r, c):
-                    # If near start, ignore obstacles (robot's own footprint)
+                    # Si près du départ, ignore les obstacles (empreinte du robot)
                     if start_cell is not None:
                         dist_to_start = abs(r - start_cell[0]) + abs(c - start_cell[1])
                         if dist_to_start <= ignore_radius:
@@ -138,7 +138,7 @@ class AStarPlanner:
                             neighbors.append(((r, c), cost))
                             continue
                     
-                    # Check occupancy on COSTMAP (inflated, safety margins)
+                    # Vérifie l'occupation sur la COSTMAP (gonflée, marges de sécurité)
                     if collision_grid[r, c] < 0.5:
                         cost = 1.414 if (dr != 0 and dc != 0) else 1.0
                         neighbors.append(((r, c), cost))
@@ -146,22 +146,22 @@ class AStarPlanner:
         return neighbors
     
     def _reconstruct_path(self, came_from, current):
-        """Reconstruct path from goal to start."""
+        """Reconstruit le chemin du but au départ."""
         total_path = [current]
         while current in came_from:
             current = came_from[current]
             total_path.append(current)
-        return total_path[::-1] # Reverse
+        return total_path[::-1] # Inverse
     
     def _simplify_path(self, path_cells):
-        """Simple path smoothing (skip minimal steps)."""
+        """Lissage simple du chemin (saute les étapes minimes)."""
         if len(path_cells) <= 2:
             return path_cells
             
         simplified = [path_cells[0]]
         for i in range(1, len(path_cells)-1):
-            # Keep every Nth point or check Line of Sight (expensive)
-            # For now, just return all points to be safe for trajectory follower
+            # Garde chaque Nième point ou vérifie la ligne de vue (coûteux)
+            # Pour l'instant, retourne tous les points pour être sûr pour le suiveur de trajectoire
             simplified.append(path_cells[i])
             
         simplified.append(path_cells[-1])

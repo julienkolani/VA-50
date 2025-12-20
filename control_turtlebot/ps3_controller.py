@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """
-Module PS3 Controller
+Controleur manette PS3 pour TurtleBot.
+
+Ce module gere les entrees d'une manette de jeu PS3 (ou compatible)
+et les convertit en commandes de vitesse pour le robot. Il supporte
+la detection automatique, la gestion des zones mortes (deadzone),
+et les boutons speciaux (arret d'urgence).
+
+Classes:
+    PS3Controller: Controleur manette PS3 configurable.
 """
 
 import pygame
@@ -56,7 +64,7 @@ class PS3Controller:
         joystick_count = pygame.joystick.get_count()
 
         if joystick_count == 0:
-            print("⚠️  Aucune manette détectée")
+            print("[PS3] Aucune manette detectee")
             self.connected = False
             return False
 
@@ -64,7 +72,7 @@ class PS3Controller:
         self.joystick.init()
 
         self.connected = True
-        print(f"🎮 Manette connectée : {self.joystick.get_name()}")
+        print(f"[PS3] Manette connectee : {self.joystick.get_name()}")
         print(f"   Axes: {self.joystick.get_numaxes()}")
         print(f"   Boutons: {self.joystick.get_numbuttons()}")
 
@@ -121,7 +129,7 @@ class PS3Controller:
         # Stick PS3 : vers le haut = valeur négative
         vitesse_lineaire = -axis_y * self.vitesse_max_lineaire
 
-        # ⚠️ Correction du bug de rotation inversée (même logique que clavier)
+        # Correction du bug de rotation inversee (meme logique que clavier)
         direction_factor = -1 if vitesse_lineaire < 0 else 1
 
         vitesse_angulaire = -axis_x * self.vitesse_max_angulaire * direction_factor
@@ -161,22 +169,22 @@ class PS3Controller:
         if not self.connected:
             return False
 
-        # Bouton X → arrêt d’urgence
+        # Bouton X  arrêt d’urgence
         if event.type == pygame.JOYBUTTONDOWN:
             if event.button == self.BTN_X:
                 self.tir_demande = True
-                print("🚨 PS3: Bouton X → ARRÊT D’URGENCE")
+                print(" PS3: Bouton X  ARRÊT D’URGENCE")
                 return True
 
-        # Déconnexion
+        # Deconnexion
         if event.type == pygame.JOYDEVICEREMOVED:
-            print("⚠️  Manette déconnectée")
+            print("[PS3] Manette deconnectee")
             self.connected = False
             self.joystick = None
 
         # Connexion d’une nouvelle manette
         if event.type == pygame.JOYDEVICEADDED:
-            print("🔌 Nouvelle manette détectée")
+            print("[PS3] Nouvelle manette detectee")
             self._detect_controller()
 
         return False

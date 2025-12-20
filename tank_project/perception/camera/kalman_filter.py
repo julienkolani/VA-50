@@ -1,14 +1,14 @@
 """
-Kalman Filter - Robot Pose Tracking
+Filtre de Kalman - Suivi de Pose Robot
 
-Extended Kalman filter for robot state estimation:
-- State: [x, y, vx, vy, theta, omega]
-- Measurements: [x, y, theta] from ArUco
-- Prediction: constant velocity model
+Filtre de Kalman Étendu (EKF) pour l'estimation d'état du robot :
+- État : [x, y, vx, vy, theta, omega]
+- Mesures : [x, y, theta] depuis ArUco
+- Prédiction : modèle à vitesse constante
 
-Smooths noisy ArUco detections and estimates velocities.
+Lisse les détections ArUco bruitées et estime les vitesses.
 
-Logs: [KALMAN] RobotX state: x=X, y=Y, theta=T, vx=VX, vy=VY
+Logs : [KALMAN] RobotX state: x=X, y=Y, theta=T, vx=VX, vy=VY
 """
 
 import numpy as np
@@ -17,37 +17,37 @@ from typing import Tuple
 
 class KalmanFilter:
     """
-    Extended Kalman Filter for 2D robot pose and velocity estimation.
+    Filtre de Kalman Étendu pour l'estimation de pose et vitesse du robot 2D.
     
-    State vector: [x, y, vx, vy, theta, omega]
+    Vecteur d'état : [x, y, vx, vy, theta, omega]
     """
     
     def __init__(self, dt: float = 1/30.0):
         """
-        Initialize Kalman filter.
+        Initialise le filtre de Kalman.
         
         Args:
-            dt: Time step (default 30 FPS = 0.033s)
+            dt: Pas de temps (défaut 30 FPS = 0.033s)
         """
         self.dt = dt
         
-        # State: [x, y, vx, vy, theta, omega]
+        # État : [x, y, vx, vy, theta, omega]
         self.state = np.zeros(6)
         
-        # State covariance
+        # Covariance de l'état
         self.P = np.eye(6) * 1.0
         
-        # Process noise
+        # Bruit de processus
         self.Q = np.diag([0.01, 0.01, 0.1, 0.1, 0.01, 0.1])
         
-        # Measurement noise
+        # Bruit de mesure
         self.R = np.diag([0.05, 0.05, 0.1])  # [x, y, theta]
         
     def predict(self):
         """
-        Prediction step: propagate state forward.
+        Étape de prédiction : propage l'état vers l'avant.
         
-        State transition:
+        Transition d'état :
             x += vx * dt
             y += vy * dt
             vx (constant)
@@ -55,7 +55,7 @@ class KalmanFilter:
             theta += omega * dt
             omega (constant)
         """
-        # State transition matrix
+        # Matrice de transition d'état
         F = np.array([
             [1, 0, self.dt, 0, 0, 0],
             [0, 1, 0, self.dt, 0, 0],
@@ -65,23 +65,23 @@ class KalmanFilter:
             [0, 0, 0, 0, 0, 1]
         ])
         
-        # Predict state
+        # Prédit l'état
         self.state = F @ self.state
         
-        # Normalize theta
+        # Normalise theta
         self.state[4] = np.arctan2(np.sin(self.state[4]), np.cos(self.state[4]))
         
-        # Predict covariance
+        # Prédit la covariance
         self.P = F @ self.P @ F.T + self.Q
         
     def update(self, measurement: Tuple[float, float, float]):
         """
-        Update step: incorporate measurement.
+        Étape de mise à jour : incorpore la mesure.
         
         Args:
-            measurement: (x, y, theta) from ArUco detection
+            measurement: (x, y, theta) depuis la détection ArUco
         """
-        # Measurement matrix (observe x, y, theta)
+        # Matrice de mesure (observe x, y, theta)
         H = np.array([
             [1, 0, 0, 0, 0, 0],
             [0, 1, 0, 0, 0, 0],
@@ -93,27 +93,27 @@ class KalmanFilter:
         # Innovation
         y = z - H @ self.state
         
-        # Normalize angle innovation
+        # Normalise l'innovation angulaire
         y[2] = np.arctan2(np.sin(y[2]), np.cos(y[2]))
         
-        # Innovation covariance
+        # Covariance de l'innovation
         S = H @ self.P @ H.T + self.R
         
-        # Kalman gain
+        # Gain de Kalman
         K = self.P @ H.T @ np.linalg.inv(S)
         
-        # Update state
+        # Met à jour l'état
         self.state = self.state + K @ y
         
-        # Normalize theta
+        # Normalise theta
         self.state[4] = np.arctan2(np.sin(self.state[4]), np.cos(self.state[4]))
         
-        # Update covariance
+        # Met à jour la covariance
         self.P = (np.eye(6) - K @ H) @ self.P
         
     def get_pose(self) -> Tuple[float, float, float]:
         """
-        Get current pose estimate.
+        Obtient l'estimation de pose actuelle.
         
         Returns:
             (x, y, theta)
@@ -122,7 +122,7 @@ class KalmanFilter:
     
     def get_velocity(self) -> Tuple[float, float, float]:
         """
-        Get current velocity estimate.
+        Obtient l'estimation de vitesse actuelle.
         
         Returns:
             (vx, vy, omega)
@@ -131,7 +131,7 @@ class KalmanFilter:
     
     def get_full_state(self) -> np.ndarray:
         """
-        Get complete state vector.
+        Obtient le vecteur d'état complet.
         
         Returns:
             [x, y, vx, vy, theta, omega]
@@ -140,7 +140,7 @@ class KalmanFilter:
     
     def reset(self, initial_pose: Tuple[float, float, float]):
         """
-        Reset filter with new initial pose.
+        Réinitialise le filtre avec une nouvelle pose initiale.
         
         Args:
             initial_pose: (x, y, theta)

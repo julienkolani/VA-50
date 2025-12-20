@@ -1,4 +1,4 @@
-"""PS3 controller for TurtleBot."""
+"""Contrôleur PS3 pour TurtleBot."""
 
 import pygame
 import math
@@ -11,21 +11,21 @@ logger = logging.getLogger(__name__)
 
 class PS3Controller(BaseController):
     """
-    PS3 gamepad controller with deadzone and button mapping.
+    Contrôleur manette PS3 avec deadzone et mapping de boutons.
     
-    Features:
-    - Analog stick control
-    - D-pad override
-    - Deadzone compensation
-    - Hot-plug support
+    Fonctionnalités :
+    - Contrôle stick analogique
+    - Surcharge D-pad
+    - Compensation deadzone
+    - Support Hot-plug
     """
     
     def __init__(self, config: dict):
         """
-        Initialize PS3 controller.
+        Initialise le contrôleur PS3.
         
         Args:
-            config: PS3 configuration from controls.yaml
+            config: Configuration PS3 depuis controls.yaml
         """
         super().__init__(config)
         
@@ -71,7 +71,7 @@ class PS3Controller(BaseController):
         joystick_count = pygame.joystick.get_count()
         
         if joystick_count == 0:
-            logger.warning("No joystick detected")
+            logger.warning("Aucun joystick détecté")
             self.connected = False
             return False
         
@@ -79,20 +79,20 @@ class PS3Controller(BaseController):
         self.joystick.init()
         self.connected = True
         
-        logger.info(f"Joystick connected: {self.joystick.get_name()}")
-        logger.info(f"  Axes: {self.joystick.get_numaxes()}, Buttons: {self.joystick.get_numbuttons()}")
+        logger.info(f"Joystick connecté : {self.joystick.get_name()}")
+        logger.info(f"  Axes : {self.joystick.get_numaxes()}, Boutons : {self.joystick.get_numbuttons()}")
         
         return True
     
     def _apply_deadzone(self, value: float) -> float:
         """
-        Apply deadzone to axis value to eliminate drift.
+        Applique la deadzone à la valeur de l'axe pour éliminer le drift.
         
         Args:
-            value: Raw axis value [-1, 1]
+            value: Valeur brute de l'axe [-1, 1]
             
         Returns:
-            Corrected value with deadzone applied
+            Valeur corrigée avec deadzone appliquée
         """
         if abs(value) < self.deadzone:
             return 0.0
@@ -103,21 +103,21 @@ class PS3Controller(BaseController):
     
     def set_speed_factor(self, factor: float):
         """
-        Set speed factor.
+        Définit le facteur de vitesse.
         
         Args:
-            factor: New speed factor
+            factor: Nouveau facteur de vitesse
         """
         self.speed_factor = factor
         self._update_scaled_params()
-        logger.info(f"Speed factor set to {factor:.2f}")
+        logger.info(f"Facteur de vitesse défini à {factor:.2f}")
     
     def update(self, events: list) -> None:
         """
-        Update controller based on joystick input.
+        Met à jour le contrôleur basé sur l'entrée joystick.
         
         Args:
-            events: List of pygame events
+            events: Liste des événements pygame
         """
         if not self._enabled or not self.connected or self.joystick is None:
             self.linear_cmd = 0.0
@@ -165,30 +165,30 @@ class PS3Controller(BaseController):
                 if event.button == self.btn_emergency_stop:
                     self.emergency_stop()
             elif event.type == pygame.JOYDEVICEREMOVED:
-                logger.warning("Joystick disconnected")
+                logger.warning("Joystick déconnecté")
                 self.connected = False
                 self.joystick = None
             elif event.type == pygame.JOYDEVICEADDED:
-                logger.info("New joystick detected")
+                logger.info("Nouveau joystick détecté")
                 self._detect_controller()
     
     def get_command(self) -> Tuple[float, float]:
         """
-        Get current velocity command.
+        Obtient la commande de vitesse actuelle.
         
         Returns:
-            Tuple of (linear_velocity_m/s, angular_velocity_rad/s)
+            Tuple de (vitesse_lineaire_m/s, vitesse_angulaire_rad/s)
         """
         if not self._enabled or not self.connected:
             return (0.0, 0.0)
         return (self.linear_cmd, self.angular_cmd)
     
     def emergency_stop(self) -> None:
-        """Execute emergency stop."""
+        """Exécute l'arrêt d'urgence."""
         self.linear_cmd = 0.0
         self.angular_cmd = 0.0
-        logger.warning("Emergency stop triggered (PS3)")
+        logger.warning("Arrêt d'urgence déclenché (PS3)")
     
     def is_connected(self) -> bool:
-        """Check if joystick is connected."""
+        """Vérifie si le joystick est connecté."""
         return self.connected

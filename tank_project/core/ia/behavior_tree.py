@@ -1,16 +1,16 @@
 """
-Behavior Tree - AI Decision Making Framework
+Arbre de Comportement - Framework de Décision IA
 
-Implements a composable behavior tree for AI decision making:
-- Selector nodes (try children until one succeeds)
-- Sequence nodes (execute all children in order)
-- Condition nodes (check world state)
-- Action nodes (output decisions)
+Implémente un arbre de comportement composable pour la prise de décision IA :
+- Nœuds Sélecteurs (essaient les enfants jusqu'à succès)
+- Nœuds Séquences (exécutent tous les enfants dans l'ordre)
+- Nœuds Conditions (vérifient l'état du monde)
+- Nœuds Actions (produisent des décisions)
 
-The AI does NOT modify game state directly.
-It only returns INTENTIONS: (target_position, fire_request).
+L'IA ne modifie PAS directement l'état du jeu.
+Elle retourne seulement des INTENTIONS : (position_cible, demande_tir).
 
-Logs: [BT] Node X succeeded/failed
+Logs : [BT] Nœud X succès/échec
 """
 
 from enum import Enum
@@ -26,7 +26,7 @@ from .decisions import (
 
 
 class NodeStatus(Enum):
-    """Behavior tree node execution status."""
+    """Statut d'exécution du nœud de l'arbre comportemental."""
     SUCCESS = "success"
     FAILURE = "failure"
     RUNNING = "running"
@@ -34,9 +34,9 @@ class NodeStatus(Enum):
 
 class BTNode(ABC):
     """
-    Base class for all behavior tree nodes.
+    Classe de base pour tous les nœuds de l'arbre comportemental.
     
-    All nodes implement tick() which returns a NodeStatus.
+    Tous les nœuds implémentent tick() qui retourne un NodeStatus.
     """
     
     def __init__(self, name):
@@ -45,10 +45,10 @@ class BTNode(ABC):
     @abstractmethod
     def tick(self, context):
         """
-        Execute this node with given context.
+        Exécute ce nœud avec le contexte donné.
         
         Args:
-            context: dict with world state, robot poses, etc.
+            context: dict avec état du monde, poses robots, etc.
             
         Returns:
             NodeStatus
@@ -58,10 +58,10 @@ class BTNode(ABC):
 
 class Selector(BTNode):
     """
-    Selector node: tries children until one succeeds.
+    Nœud Sélecteur : essaie les enfants jusqu'à ce que l'un réussisse.
     
-    Returns SUCCESS if any child succeeds.
-    Returns FAILURE if all children fail.
+    Retourne SUCCESS si un enfant réussit.
+    Retourne FAILURE si tous les enfants échouent.
     """
     
     def __init__(self, name, children):
@@ -80,10 +80,10 @@ class Selector(BTNode):
 
 class Sequence(BTNode):
     """
-    Sequence node: executes children in order.
+    Nœud Séquence : exécute les enfants dans l'ordre.
     
-    Returns SUCCESS if all children succeed.
-    Returns FAILURE if any child fails.
+    Retourne SUCCESS si tous les enfants réussissent.
+    Retourne FAILURE si un enfant échoue.
     """
     
     def __init__(self, name, children):
@@ -102,9 +102,9 @@ class Sequence(BTNode):
 
 class Condition(BTNode):
     """
-    Condition node: checks a predicate function.
+    Nœud Condition : vérifie une fonction prédicat.
     
-    Returns SUCCESS if predicate is True, FAILURE otherwise.
+    Retourne SUCCESS si le prédicat est Vrai, FAILURE sinon.
     """
     
     def __init__(self, name, predicate_fn):
@@ -119,9 +119,9 @@ class Condition(BTNode):
 
 class Action(BTNode):
     """
-    Action node: executes an action function.
+    Nœud Action : exécute une fonction d'action.
     
-    The action function modifies context['ai_output'] with decisions.
+    La fonction d'action modifie context['ai_output'] avec les décisions.
     """
     
     def __init__(self, name, action_fn):
@@ -136,9 +136,9 @@ class Action(BTNode):
 
 def action_retreat_to_cover(context):
     """
-    Action: Find cover and set as target.
+    Action : Trouver une couverture et définir comme cible.
     
-    Modifies context['ai_output'] with retreat target.
+    Modifie context['ai_output'] avec la cible de repli.
     """
     cover_pos = find_nearest_cover(context)
     
@@ -146,37 +146,37 @@ def action_retreat_to_cover(context):
         context['ai_output']['target_position'] = cover_pos
         context['ai_output']['state'] = 'RETREAT'
         context['ai_output']['fire_request'] = False
-        print("[BT] Action: RETREAT to cover at ({:.2f}, {:.2f})".format(
+        print("[BT] Action : REPLI vers couverture à ({:.2f}, {:.2f})".format(
             cover_pos[0], cover_pos[1]))
         return NodeStatus.SUCCESS
     else:
-        print("[BT] Action: RETREAT failed - no cover found")
+        print("[BT] Action : REPLI échoué - pas de couverture")
         return NodeStatus.FAILURE
 
 
 def action_aim_and_fire(context):
     """
-    Action: Aim at enemy and request fire.
+    Action : Viser l'ennemi et demander le tir.
     
-    Modifies context['ai_output'] with fire request.
+    Modifie context['ai_output'] avec la demande de tir.
     """
     human_pose = context.get('human_pose')
     
     if human_pose is None:
         return NodeStatus.FAILURE
     
-    context['ai_output']['target_position'] = None  # Stay in place
-    context['ai_output']['target_orientation'] = human_pose[:2]  # Aim at enemy
+    context['ai_output']['target_position'] = None  # Rester sur place
+    context['ai_output']['target_orientation'] = human_pose[:2]  # Viser l'ennemi
     context['ai_output']['fire_request'] = True
     context['ai_output']['state'] = 'ATTACK'
     
-    print("[BT] Action: AIM AND FIRE at enemy")
+    print("[BT] Action : VISER ET TIRER sur ennemi")
     return NodeStatus.SUCCESS
 
 
 def action_find_flank_position(context):
     """
-    Action: Calculate flanking position.
+    Action : Calculer une position de contournement.
     """
     flank_pos = calculate_flank_position(context)
     
@@ -184,7 +184,7 @@ def action_find_flank_position(context):
         context['ai_output']['target_position'] = flank_pos
         context['ai_output']['state'] = 'FLANK'
         context['ai_output']['fire_request'] = False
-        print("[BT] Action: FLANK to ({:.2f}, {:.2f})".format(
+        print("[BT] Action : CONTOURNEMENT vers ({:.2f}, {:.2f})".format(
             flank_pos[0], flank_pos[1]))
         return NodeStatus.SUCCESS
     else:
@@ -193,19 +193,19 @@ def action_find_flank_position(context):
 
 def action_move_to_flank(context):
     """
-    Action: Move towards flanking position.
+    Action : Se déplacer vers la position de contournement.
     """
-    # This is handled by trajectory follower, just confirm we have a target
+    # C'est géré par le suiveur de trajectoire, confirmer juste qu'on a une cible
     target = context['ai_output'].get('target_position')
     if target is not None:
-        print("[BT] Action: Moving to flank position")
+        print("[BT] Action : Déplacement vers position contournement")
         return NodeStatus.RUNNING
     return NodeStatus.FAILURE
 
 
 def action_hunt_enemy(context):
     """
-    Action: Move towards enemy's last known position.
+    Action : Se déplacer vers la dernière position connue de l'ennemi.
     """
     human_pose = context.get('human_pose')
     
@@ -213,7 +213,7 @@ def action_hunt_enemy(context):
         context['ai_output']['target_position'] = human_pose[:2]
         context['ai_output']['state'] = 'HUNT'
         context['ai_output']['fire_request'] = False
-        print("[BT] Action: HUNT - moving to enemy position")
+        print("[BT] Action : CHASSE - déplacement vers position ennemie")
         return NodeStatus.SUCCESS
     
     return NodeStatus.FAILURE
@@ -221,50 +221,50 @@ def action_hunt_enemy(context):
 
 def build_ai_behavior_tree():
     """
-    Construct the main AI behavior tree.
+    Construit l'arbre de comportement principal de l'IA.
     
-    Structure:
+    Structure :
     
-    Selector (Root)
-      +-- Sequence (SURVIVAL)
-      |   +-- Condition: "enemy too close?"
-      |   +-- Action: "retreat to cover"
+    Sélecteur (Racine)
+      +-- Séquence (SURVIVAL)
+      |   +-- Condition : "ennemi trop proche ?"
+      |   +-- Action : "repli vers couverture"
       |
-      +-- Sequence (ATTACK)
-      |   +-- Condition: "have line of sight?"
-      |   +-- Condition: "in optimal range?"
-      |   +-- Action: "aim and request fire"
+      +-- Séquence (ATTACK)
+      |   +-- Condition : "ligne de vue ?"
+      |   +-- Condition : "portée optimale ?"
+      |   +-- Action : "viser et demander feu"
       |
-      +-- Sequence (FLANK)
-          +-- Action: "find flanking position"
-          +-- Action: "move to flank"
+      +-- Séquence (FLANK)
+          +-- Action : "trouver position contournement"
+          +-- Action : "déplacement contournement"
     
     Returns:
-        BTNode: root of the behavior tree
+        BTNode: racine de l'arbre comportemental
     """
-    # SURVIVAL branch: retreat if enemy too close
+    # Branche SURVIVAL : repli si ennemi trop proche
     survival_sequence = Sequence("SURVIVAL", [
         Condition("enemy_too_close", is_enemy_too_close),
         Action("retreat_to_cover", action_retreat_to_cover)
     ])
     
-    # ATTACK branch: fire if we have clear shot in optimal range
+    # Branche ATTACK : tir si tir clair et portée optimale
     attack_sequence = Sequence("ATTACK", [
         Condition("has_line_of_sight", has_line_of_sight),
         Condition("in_optimal_range", is_optimal_firing_range),
         Action("aim_and_fire", action_aim_and_fire)
     ])
     
-    # FLANK branch: try to get into better position
+    # Branche FLANK : essayer d'obtenir une meilleure position
     flank_sequence = Sequence("FLANK", [
         Action("find_flank_position", action_find_flank_position),
         Action("move_to_flank", action_move_to_flank)
     ])
     
-    # HUNT branch: fallback - just chase enemy
+    # Branche HUNT : repli - juste chasser l'ennemi
     hunt_action = Action("hunt_enemy", action_hunt_enemy)
     
-    # Root selector: try survival first, then attack, then flank, then hunt
+    # Sélecteur racine : essaie survie d'abord, puis attaque, puis contournement, puis chasse
     root = Selector("AI_ROOT", [
         survival_sequence,
         attack_sequence,
@@ -272,13 +272,13 @@ def build_ai_behavior_tree():
         hunt_action
     ])
     
-    print("[BT] Behavior tree constructed")
+    print("[BT] Arbre de comportement construit")
     return root
 
 
 class BehaviorTreeExecutor:
     """
-    Executor that runs the behavior tree each tick.
+    Exécuteur qui lance l'arbre comportemental à chaque tick.
     """
     
     def __init__(self):
@@ -286,18 +286,18 @@ class BehaviorTreeExecutor:
     
     def execute(self, context):
         """
-        Execute behavior tree with given context.
+        Exécute l'arbre comportemental avec le contexte donné.
         
         Args:
-            context: World state dict. Must contain:
+            context: Dictionnaire d'état du monde. Doit contenir :
                 - ai_pose: (x, y, theta)
                 - human_pose: (x, y, theta)
-                - occupancy_grid: grid object
+                - occupancy_grid: objet grille
                 
         Returns:
-            dict: AI output decisions
+            dict: Décisions de sortie IA
         """
-        # Initialize output structure
+        # Initialise la structure de sortie
         context['ai_output'] = {
             'target_position': None,
             'target_orientation': None,
@@ -306,12 +306,12 @@ class BehaviorTreeExecutor:
             'has_los': False
         }
         
-        # Check LOS for output
+        # Vérifie LOS pour la sortie
         context['ai_output']['has_los'] = has_line_of_sight(context)
         
-        # Execute tree
+        # Exécute l'arbre
         status = self.tree.tick(context)
         
-        print("[BT] Tree execution: {}".format(status.value))
+        print("[BT] Exécution arbre : {}".format(status.value))
         
         return context['ai_output']

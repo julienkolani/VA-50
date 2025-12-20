@@ -1,13 +1,13 @@
 """
-Motion Constraints - Velocity & Acceleration Limits
+Contraintes de Mouvement - Limites de Vitesse & Accélération
 
-Enforces robot physical constraints:
-- Maximum velocities (linear, angular)
-- Maximum accelerations
-- Smooth velocity ramping
-- Emergency stop logic
+Applique les contraintes physiques du robot :
+- Vitesses maximales (linéaire, angulaire)
+- Accélérations maximales
+- Lissage de la vitesse
+- Logique d'arrêt d'urgence
 
-Prevents damaging commands and ensures smooth motion.
+Empêche les commandes dangereuses et assure un mouvement fluide.
 """
 
 import numpy as np
@@ -16,20 +16,20 @@ from typing import Tuple
 
 class MotionConstraints:
     """
-    Enforces physical motion constraints for safe robot control.
+    Applique les contraintes physiques de mouvement pour un contrôle sûr du robot.
     
-    Prevents:
-    - Exceeding velocity limits
-    - Excessive acceleration (sudden changes)
-    - Unsafe commands
+    Prévient :
+    - Dépassement des limites de vitesse
+    - Accélération excessive (changements brusques)
+    - Commandes dangereuses
     """
     
     def __init__(self, config):
         """
-        Initialize motion constraints.
+        Initialise les contraintes de mouvement.
         
         Args:
-            config: Robot configuration:
+            config: Configuration du robot :
                 - max_linear_vel: m/s
                 - max_angular_vel: rad/s
                 - max_linear_accel: m/s²
@@ -40,7 +40,7 @@ class MotionConstraints:
         self.max_accel_v = config.get('max_linear_accel', 0.5)
         self.max_accel_omega = config.get('max_angular_accel', 5.0)
         
-        # Previous commands for acceleration limiting
+        # Commandes précédentes pour limitation d'accélération
         self.prev_v = 0.0
         self.prev_omega = 0.0
         
@@ -49,32 +49,32 @@ class MotionConstraints:
                          omega_desired: float,
                          dt: float) -> Tuple[float, float]:
         """
-        Apply all motion constraints.
+        Applique toutes les contraintes de mouvement.
         
         Args:
-            v_desired: Desired linear velocity
-            omega_desired: Desired angular velocity
-            dt: Time since last command (seconds)
+            v_desired: Vitesse linéaire désirée
+            omega_desired: Vitesse angulaire désirée
+            dt: Temps depuis la dernière commande (secondes)
             
         Returns:
-            (v_safe, omega_safe): constrained velocities
+            (v_safe, omega_safe): vitesses contraintes
             
-        Steps:
-            1. Clamp to velocity limits
-            2. Limit acceleration
-            3. Update previous commands
+        Étapes :
+            1. Limite aux vitesses max
+            2. Limite l'accélération
+            3. Met à jour les commandes précédentes
         """
-        # Velocity limits
+        # Limites de vitesse
         v = np.clip(v_desired, -self.max_v, self.max_v)
         omega = np.clip(omega_desired, -self.max_omega, self.max_omega)
         
-        # Acceleration limits
+        # Limites d'accélération
         if dt > 0:
             v = self._limit_acceleration(v, self.prev_v, self.max_accel_v, dt)
             omega = self._limit_acceleration(omega, self.prev_omega, 
                                             self.max_accel_omega, dt)
         
-        # Store for next iteration
+        # Stockage pour la prochaine itération
         self.prev_v = v
         self.prev_omega = omega
         
@@ -86,16 +86,16 @@ class MotionConstraints:
                            max_accel: float, 
                            dt: float) -> float:
         """
-        Limit acceleration of a single velocity component.
+        Limite l'accélération d'une composante de vitesse.
         
         Args:
-            desired: Desired velocity
-            previous: Previous velocity
-            max_accel: Maximum allowed acceleration
-            dt: Time step
+            desired: Vitesse désirée
+            previous: Vitesse précédente
+            max_accel: Accélération maximum autorisée
+            dt: Pas de temps
             
         Returns:
-            Acceleration-limited velocity
+            Vitesse limitée en accélération
         """
         delta = desired - previous
         max_delta = max_accel * dt
@@ -107,9 +107,9 @@ class MotionConstraints:
     
     def emergency_stop(self):
         """
-        Reset to zero velocity immediately.
+        Réinitialise la vitesse à zéro immédiatement.
         
-        Used for safety stop.
+        Utilisé pour un arrêt de sécurité.
         """
         self.prev_v = 0.0
         self.prev_omega = 0.0
@@ -118,12 +118,12 @@ class MotionConstraints:
     
     def soft_stop(self, dt: float) -> Tuple[float, float]:
         """
-        Gradually decelerate to zero.
+        Décélère graduellement jusqu'à zéro.
         
         Args:
-            dt: Time step
+            dt: Pas de temps
             
         Returns:
-            Decelerating velocities
+            Vitesses en décélération
         """
         return self.apply_constraints(0.0, 0.0, dt)

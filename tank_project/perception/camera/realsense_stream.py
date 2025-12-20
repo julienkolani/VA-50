@@ -1,15 +1,15 @@
 """
-RealSense Stream - Intel RealSense Camera Interface
+Flux RealSense - Interface Caméra Intel RealSense
 
-Manages RealSense D435/D455 camera:
-- Color stream acquisition
-- Depth stream (optional)
-- Camera configuration
-- Frame rate management
+Gère la caméra RealSense D435/D455 :
+- Acquisition flux couleur
+- Flux profondeur (optionnel)
+- Configuration caméra
+- Gestion fréquence d'images
 
-Provides synchronized color and depth frames at 30 FPS.
+Fournit frames couleur et profondeur synchronisées à 30 FPS.
 
-Logs: [REALSENSE] prefix for camera operations
+Logs : préfixe [REALSENSE] pour les opérations caméra
 """
 
 import pyrealsense2 as rs
@@ -19,9 +19,9 @@ from typing import Tuple, Optional
 
 class RealSenseStream:
     """
-    Interface for Intel RealSense camera.
+    Interface pour caméra Intel RealSense.
     
-    Handles camera initialization and frame acquisition.
+    Gère l'initialisation de la caméra et l'acquisition des frames.
     """
     
     def __init__(self, 
@@ -30,13 +30,13 @@ class RealSenseStream:
                  fps: int = 30,
                  enable_depth: bool = False):
         """
-        Initialize RealSense camera.
+        Initialise la caméra RealSense.
         
         Args:
-            width: Frame width
-            height: Frame height
-            fps: Frame rate
-            enable_depth: Enable depth stream
+            width: Largeur frame
+            height: Hauteur frame
+            fps: Fréquence d'images
+            enable_depth: Activer flux profondeur
             
         Logs:
             [REALSENSE] Camera initialized: WxH @ FPS fps
@@ -51,17 +51,17 @@ class RealSenseStream:
         
     def start(self):
         """
-        Start camera pipeline.
+        Démarre le pipeline caméra.
         
         Logs:
-            [REALSENSE] Pipeline started
-            [REALSENSE] Failed to start: error
+            [REALSENSE] Pipeline démarré
+            [REALSENSE] Échec du démarrage : erreur
         """
         try:
             self.pipeline = rs.pipeline()
             self.config = rs.config()
             
-            # Configure streams
+            # Configure les flux
             self.config.enable_stream(rs.stream.color, 
                                      self.width, self.height, 
                                      rs.format.bgr8, self.fps)
@@ -71,42 +71,42 @@ class RealSenseStream:
                                          self.width, self.height, 
                                          rs.format.z16, self.fps)
             
-            # Start pipeline
+            # Démarre pipeline
             self.pipeline.start(self.config)
             
-            print("[REALSENSE] Pipeline started: {}x{} @ {} fps".format(self.width, self.height, self.fps))
+            print("[REALSENSE] Pipeline démarré : {}x{} @ {} fps".format(self.width, self.height, self.fps))
             
         except Exception as e:
-            print("[REALSENSE] Failed to start: {}".format(e))
+            print("[REALSENSE] Échec du démarrage : {}".format(e))
             raise
     
     def stop(self):
-        """Stop camera pipeline."""
+        """Arrête le pipeline caméra."""
         if self.pipeline:
             self.pipeline.stop()
-            print("[REALSENSE] Pipeline stopped")
+            print("[REALSENSE] Pipeline arrêté")
     
     def get_frames(self) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         """
-        Get latest color and depth frames.
+        Obtient les dernières frames couleur et profondeur.
         
         Returns:
-            (color_frame, depth_frame): numpy arrays
-            color_frame: HxWx3 BGR image
-            depth_frame: HxW depth map (mm) or None
+            (color_frame, depth_frame): tableaux numpy
+            color_frame: Image BGR HxWx3
+            depth_frame: Carte profondeur HxW (mm) ou None
         """
         if not self.pipeline:
             return (None, None)
         
         try:
-            # Wait for frames
+            # Attend les frames
             frames = self.pipeline.wait_for_frames()
             
-            # Get color frame
+            # Obtient frame couleur
             color_frame = frames.get_color_frame()
             color_image = np.asanyarray(color_frame.get_data()) if color_frame else None
             
-            # Get depth frame (if enabled)
+            # Obtient frame profondeur (si activé)
             depth_image = None
             if self.enable_depth:
                 depth_frame = frames.get_depth_frame()
@@ -115,15 +115,15 @@ class RealSenseStream:
             return (color_image, depth_image)
             
         except Exception as e:
-            print("[REALSENSE] Frame acquisition error: {}".format(e))
+            print("[REALSENSE] Erreur d'acquisition frame : {}".format(e))
             return (None, None)
     
     def get_intrinsics(self):
         """
-        Get camera intrinsic parameters.
+        Obtient les paramètres intrinsèques de la caméra.
         
         Returns:
-            rs.intrinsics object with fx, fy, cx, cy
+            objet rs.intrinsics avec fx, fy, cx, cy
         """
         if self.pipeline:
             profile = self.pipeline.get_active_profile()

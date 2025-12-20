@@ -1,4 +1,4 @@
-"""Configuration loader utility for YAML files."""
+"""Utilitaire de chargement de configuration pour les fichiers YAML."""
 
 import yaml
 from pathlib import Path
@@ -9,60 +9,60 @@ logger = logging.getLogger(__name__)
 
 
 class ConfigLoader:
-    """Load and manage YAML configuration files."""
+    """Charge et gère les fichiers de configuration YAML."""
     
     def __init__(self, config_dir: Path = None):
         """
-        Initialize configuration loader.
+        Initialise le chargeur de configuration.
         
         Args:
-            config_dir: Directory containing config files. If None, uses ./config
+            config_dir: Répertoire contenant les fichiers config. Si None, utilise ./config
         """
         if config_dir is None:
-            # Get config dir relative to this file's location
+            # Obtient le répertoire config relatif à l'emplacement de ce fichier
             self.config_dir = Path(__file__).parent.parent / 'config'
         else:
             self.config_dir = Path(config_dir)
         
         if not self.config_dir.exists():
-            raise FileNotFoundError(f"Config directory not found: {self.config_dir}")
+            raise FileNotFoundError(f"Répertoire config introuvable : {self.config_dir}")
         
-        logger.info(f"Config directory: {self.config_dir}")
+        logger.info(f"Répertoire config : {self.config_dir}")
     
     def load(self, config_name: str) -> Dict[str, Any]:
         """
-        Load a YAML configuration file.
+        Charge un fichier de configuration YAML.
         
         Args:
-            config_name: Name of config file (without .yaml extension)
+            config_name: Nom du fichier config (sans extension .yaml)
             
         Returns:
-            Dictionary containing configuration
+            Dictionnaire contenant la configuration
             
         Raises:
-            FileNotFoundError: If config file doesn't exist
-            yaml.YAMLError: If config file is malformed
+            FileNotFoundError: Si le fichier config n'existe pas
+            yaml.YAMLError: Si le fichier config est malformé
         """
         config_path = self.config_dir / f"{config_name}.yaml"
         
         if not config_path.exists():
-            raise FileNotFoundError(f"Config file not found: {config_path}")
+            raise FileNotFoundError(f"Fichier config introuvable : {config_path}")
         
         try:
             with open(config_path, 'r') as f:
                 config = yaml.safe_load(f)
-            logger.info(f"Loaded config: {config_name}")
+            logger.info(f"Config chargée : {config_name}")
             return config
         except yaml.YAMLError as e:
-            logger.error(f"Error parsing {config_name}.yaml: {e}")
+            logger.error(f"Erreur parsing {config_name}.yaml : {e}")
             raise
     
     def load_all(self) -> Dict[str, Dict[str, Any]]:
         """
-        Load all YAML configuration files from config directory.
+        Charge tous les fichiers de configuration YAML du répertoire config.
         
         Returns:
-            Dictionary mapping config names to their contents
+            Dictionnaire mappant les noms de config à leur contenu
         """
         all_configs = {}
         
@@ -71,24 +71,24 @@ class ConfigLoader:
             try:
                 all_configs[config_name] = self.load(config_name)
             except Exception as e:
-                logger.warning(f"Failed to load {config_name}: {e}")
+                logger.warning(f"Échec du chargement de {config_name} : {e}")
         
         return all_configs
     
     def get_value(self, config_name: str, key_path: str, default: Any = None) -> Any:
         """
-        Get a specific value from a config using dot notation.
+        Obtient une valeur spécifique d'une config en utilisant la notation par points.
         
         Args:
-            config_name: Name of config file
-            key_path: Path to value using dot notation (e.g., 'websocket.uri')
-            default: Default value if key not found
+            config_name: Nom du fichier config
+            key_path: Chemin vers la valeur (ex: 'websocket.uri')
+            default: Valeur par défaut si la clé n'est pas trouvée
             
         Returns:
-            Value at key_path or default
+            Valeur à key_path ou default
             
         Example:
-            loader.get_value('network', 'websocket.uri')  # Returns 'ws://localhost:8765'
+            loader.get_value('network', 'websocket.uri')  # Retourne 'ws://localhost:8765'
         """
         config = self.load(config_name)
         

@@ -25,7 +25,7 @@ setup(
     zip_safe=True,
     maintainer='Projet VA50 Promo 2025 Automne',
     maintainer_email='projetva50@utbm.edu',
-    description='TurtleBot game modules + Safety Bridge WebSocket for VA50 UTBM',
+    description='Modules de jeu TurtleBot + Safety Bridge WebSocket pour VA50 UTBM',
     license='MIT',
     tests_require=['pytest'],
     

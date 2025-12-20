@@ -117,6 +117,6 @@ def segment_obstacles(image: np.ndarray,
     
     # Compter pixels obstacles
     obstacle_pixels = np.count_nonzero(mask)
-    print("[SEGMENT] Obstacles detected: {} pixels".format(obstacle_pixels))
+    print("[SEGMENT] Obstacles détectés : {} pixels".format(obstacle_pixels))
     
     return mask

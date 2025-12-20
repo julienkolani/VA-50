@@ -1,13 +1,13 @@
 """
-ROS Bridge Client - Communication with ROS System
+Client Pont ROS - Communication avec le système ROS
 
-WebSocket client for sending commands to ROS bridge:
-- Connects to ROS bridge server via WebSocket
-- Sends velocity commands to /cmd_vel
-- Receives acknowledgments
-- Maintains connection health
+Client WebSocket pour envoyer des commandes au pont ROS :
+- Se connecte au serveur pont ROS via WebSocket
+- Envoie des commandes de vitesse sur /cmd_vel
+- Reçoit les acquittements
+- Maintaint la santé de la connexion
 
-Logs: [ROS] Command sent: v=X, ω=Y
+Logs : [ROS] Commande envoyée : v=X, ω=Y
 """
 
 import json
@@ -22,23 +22,23 @@ try:
     HAS_WEBSOCKETS = True
 except ImportError:
     HAS_WEBSOCKETS = False
-    print("[ROS] Warning: websockets not installed, using fallback")
+    print("[ROS] Attention : websockets non installé, utilisation du repli")
 
 
 class ROSBridgeClient:
     """
-    Client for communicating with ROS bridge via WebSocket.
+    Client pour communiquer avec le pont ROS via WebSocket.
     
-    Sends velocity commands to physical robot.
+    Envoie des commandes de vitesse au robot physique.
     """
     
     def __init__(self, host: str = 'localhost', port: int = 8765):
         """
-        Initialize ROS bridge client.
+        Initialise le client pont ROS.
         
         Args:
-            host: ROS bridge server host
-            port: ROS bridge server port (default 8765 for WebSocket)
+            host: Hôte du serveur pont ROS
+            port: Port du serveur pont ROS (défaut 8765 pour WebSocket)
         """
         self.host = host
         self.port = port
@@ -48,18 +48,18 @@ class ROSBridgeClient:
         
     def connect(self, max_retries: int = 3, retry_interval: float = 2.0):
         """
-        Establish WebSocket connection to ROS bridge.
+        Établit la connexion WebSocket avec le pont ROS.
         
         Args:
-            max_retries: Max retry attempts
-            retry_interval: Seconds between retries
+            max_retries: Tentatives max
+            retry_interval: Secondes entre les essais
         
-        Logs:
-            [ROS] Connected to bridge at host:port
-            [ROS] Connection failed: error
+        Logs :
+            [ROS] Connecté au pont à host:port
+            [ROS] Connexion échouée : erreur
         """
         if not HAS_WEBSOCKETS:
-            print("[ROS] WebSocket library not available")
+            print("[ROS] Bibliothèque WebSocket non disponible")
             return False
             
         attempt = 0
@@ -69,54 +69,54 @@ class ROSBridgeClient:
                 self.ws = ws_connect(self.uri, open_timeout=5)
                 self.connected = True
                 
-                # Read welcome message
+                # Lit le message de bienvenue
                 try:
                     welcome = self.ws.recv(timeout=2)
-                    print(f"[ROS] Connected to bridge at {self.host}:{self.port}")
+                    print(f"[ROS] Connecté au pont à {self.host}:{self.port}")
                 except:
-                    print(f"[ROS] Connected to bridge at {self.host}:{self.port}")
+                    print(f"[ROS] Connecté au pont à {self.host}:{self.port}")
                     
                 return True
                 
             except Exception as e:
                 self.connected = False
-                print(f"[ROS] Connection attempt {attempt} failed: {e}")
+                print(f"[ROS] Tentative de connexion {attempt} échouée : {e}")
                 
                 if attempt >= max_retries:
-                    print("[ROS] Max retries reached, running without ROS connection")
+                    print("[ROS] Nb max d'essais atteint, exécution sans connexion ROS")
                     return False
                 
-                print(f"[ROS] Retrying in {retry_interval} seconds...")
+                print(f"[ROS] Nouvel essai dans {retry_interval} secondes...")
                 time.sleep(retry_interval)
         
         return False
     
     def disconnect(self):
-        """Close WebSocket connection to ROS bridge."""
+        """Ferme la connexion WebSocket au pont ROS."""
         if self.ws:
             try:
                 self.ws.close()
             except:
                 pass
             self.connected = False
-            print("[ROS] Disconnected from bridge")
+            print("[ROS] Déconnecté du pont")
     
     def send_velocity_command(self, 
                              robot_id: int, 
                              v: float, 
                              omega: float) -> bool:
         """
-        Send velocity command to robot.
+        Envoie une commande de vitesse au robot.
         
         Args:
-            robot_id: 4 (AI) or 5 (Human)
-            v: Linear velocity in m/s
-            omega: Angular velocity in rad/s
+            robot_id: 4 (IA) ou 5 (Humain)
+            v: Vitesse linéaire en m/s
+            omega: Vitesse angulaire en rad/s
             
         Returns:
-            True if sent successfully
+            True si envoyé avec succès
             
-        Message format (JSON):
+        Format message (JSON) :
             {
                 "type": "cmd_vel",
                 "linear_x": v,
@@ -124,15 +124,15 @@ class ROSBridgeClient:
                 "timestamp": unix_time
             }
             
-        Logs:
-            [ROS] Robot4 cmd: v=0.15 m/s, ω=-0.30 rad/s
+        Logs :
+            [ROS] Robot4 cmd : v=0.15 m/s, ω=-0.30 rad/s
         """
         if not self.connected or not self.ws:
-            # Try to reconnect silently
+            # Essaie de reconnecter silencieusement
             if not self.connect(max_retries=1, retry_interval=0.5):
                 return False
         
-        # Message format matching safety_bridge.py expectations
+        # Format message correspondant aux attentes de safety_bridge.py
         message = {
             "type": "cmd_vel",
             "linear_x": round(v, 4),
@@ -144,32 +144,32 @@ class ROSBridgeClient:
             msg_json = json.dumps(message)
             self.ws.send(msg_json)
             
-            # Log (less verbose - only log every 30th command or significant ones)
+            # Log (moins verbeux - seulement toutes les 30 commandes ou significatives)
             if abs(v) > 0.01 or abs(omega) > 0.1:
-                print(f"[ROS] Robot{robot_id} cmd: v={v:.2f} m/s, w={omega:.2f} rad/s")
+                print(f"[ROS] Robot{robot_id} cmd : v={v:.2f} m/s, w={omega:.2f} rad/s")
             
-            # Try to receive acknowledgment (non-blocking)
+            # Essaie de recevoir l'acquittement (non-bloquant)
             try:
                 self.ws.recv(timeout=0.01)
             except:
-                pass  # Ignore if no response
+                pass  # Ignore si pas de réponse
             
             return True
             
         except Exception as e:
-            print(f"[ROS] Send failed: {e}")
+            print(f"[ROS] Envoi échoué : {e}")
             self.connected = False
             return False
     
     def receive_feedback(self, timeout: float = 0.01) -> Optional[dict]:
         """
-        Receive feedback from ROS bridge (non-blocking).
+        Reçoit le retour du pont ROS (non-bloquant).
         
         Args:
-            timeout: Socket timeout in seconds
+            timeout: Timeout socket en secondes
             
         Returns:
-            dict with data, or None
+            dict avec données, ou None
         """
         if not self.connected or not self.ws:
             return None
@@ -179,15 +179,15 @@ class ROSBridgeClient:
             if data:
                 return json.loads(data)
         except:
-            pass  # No data available
+            pass  # Pas de données disponibles
             
         return None
     
     def send_stop_command(self, robot_id: int):
         """
-        Send emergency stop to robot.
+        Envoie un arrêt d'urgence au robot.
         
         Args:
-            robot_id: Robot to stop
+            robot_id: Robot à arrêter
         """
         self.send_velocity_command(robot_id, 0.0, 0.0)

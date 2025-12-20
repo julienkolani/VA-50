@@ -2,9 +2,9 @@
 Homography - Calculs Transformations Homographiques
 
 Calcule et applique les homographies:
-- H_C2AV: Caméra → Arène Virtuelle
-- H_AV2W: Arène Virtuelle → Monde (scaling)
-- H_C2W: Caméra → Monde (combinée)
+- H_C2AV: Caméra -> Arène Virtuelle
+- H_AV2W: Arène Virtuelle -> Monde (scaling)
+- H_C2W: Caméra -> Monde (combinée)
 
 Utilisé par calibration_wizard et coordinate_frames.
 
@@ -44,7 +44,7 @@ def compute_homography(src_points: np.ndarray,
     # Calculer homographie
     H, _ = cv2.findHomography(src, dst)
     
-    print("[HOMOGRAPHY] Computed from {} points".format(len(src_points)))
+    print("[HOMOGRAPHY] Calculé depuis {} points".format(len(src_points)))
     
     return H
 
@@ -139,7 +139,7 @@ def estimate_scale_from_marker(marker_corners_px: List[Tuple[float, float]],
     
     Args:
         marker_corners_px: 4 coins marqueur en pixels caméra
-        H_C2AV: Homographie Caméra → Arène Virtuelle
+        H_C2AV: Homographie Caméra -> Arène Virtuelle
         real_size_m: Taille réelle marqueur en mètres
         
     Returns:
@@ -151,7 +151,7 @@ def estimate_scale_from_marker(marker_corners_px: List[Tuple[float, float]],
         3. scale = real_size_m / size_av
         
     Logs:
-        [HOMOGRAPHY] Scale estimation: real=Xm, av=Y units → scale=Z m/unit
+        [HOMOGRAPHY] Scale estimation: real=Xm, av=Y units -> scale=Z m/unit
     """
     # Transformer coins en AV
     corners_av = apply_homography(np.array(marker_corners_px), H_C2AV)
@@ -169,7 +169,7 @@ def estimate_scale_from_marker(marker_corners_px: List[Tuple[float, float]],
     # Échelle
     scale = real_size_m / avg_size_av
     
-    print("[HOMOGRAPHY] Scale estimation: real={:.3f}m, "
-          "av={:.3f} units -> scale={:.3f} m/unit".format(real_size_m, avg_size_av, scale))
+    print("[HOMOGRAPHY] Estimation échelle : réel={:.3f}m, "
+          "av={:.3f} unités -> échelle={:.3f} m/unité".format(real_size_m, avg_size_av, scale))
     
     return scale

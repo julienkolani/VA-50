@@ -1,16 +1,16 @@
 """
-Decisions - Tactical Decision Functions
+Décisions - Fonctions de Décision Tactique
 
-Provides tactical assessment functions used by behavior tree conditions:
-- Is enemy too close? (threat assessment)
-- Do we have line of sight? (visibility check)
-- Are we in optimal firing range?
-- Is cover available nearby?
-- Should we retreat?
+Fournit les fonctions d'évaluation tactique utilisées par les conditions de l'arbre comportemental :
+- L'ennemi est-il trop proche ? (évaluation de la menace)
+- A-t-on une ligne de vue ? (vérification visibilité)
+- Sommes-nous à portée de tir optimale ?
+- Y a-t-il une couverture à proximité ?
+- Devrions-nous nous replier ?
 
-All functions take context dict and return bool or tactical value.
+Toutes les fonctions prennent un dict context et retournent bool ou une valeur tactique.
 
-Logs: [DECISION] Assessment X: value Y
+Logs : [DECISION] Évaluation X : valeur Y
 """
 
 import numpy as np
@@ -19,14 +19,14 @@ from typing import Dict, Tuple, Optional, List
 
 def is_enemy_too_close(context: Dict, threshold_m: float = 0.8) -> bool:
     """
-    Check if enemy is dangerously close.
+    Vérifie si l'ennemi est dangereusement proche.
     
     Args:
-        context: World state with robot poses
-        threshold_m: Danger threshold in meters
+        context: État du monde avec poses robots
+        threshold_m: Seuil de danger en mètres
         
     Returns:
-        True if enemy within threshold
+        True si ennemi dans le seuil
     """
     ai_pos = context['ai_pose'][:2]
     human_pos = context['human_pose'][:2]
@@ -37,18 +37,18 @@ def is_enemy_too_close(context: Dict, threshold_m: float = 0.8) -> bool:
 
 def has_line_of_sight(context: Dict) -> bool:
     """
-    Check if AI has clear line of sight to enemy.
+    Vérifie si l'IA a une ligne de vue dégagée vers l'ennemi.
     
-    Uses raycast from core.world to check for obstacles.
+    Utilise le raycast de core.world pour vérifier les obstacles.
     
     Args:
-        context: World state with robot poses and raycast
+        context: État du monde avec poses robots et raycast
         
     Returns:
-        True if clear line of sight exists
+        True si une ligne de vue claire existe
         
-    Logs:
-        [DECISION] LOS check: CLEAR/BLOCKED
+    Logs :
+        [DECISION] Verif LOS : CLAIR/BLOQUE
     """
     ai_pose = context.get('ai_pose')
     human_pose = context.get('human_pose')
@@ -58,18 +58,18 @@ def has_line_of_sight(context: Dict) -> bool:
         return False
     
     if raycast is None:
-        # No raycast system available, assume clear LOS
-        print("[DECISION] LOS check: NO RAYCAST SYSTEM")
+        # Pas de système raycast disponible, suppose LOS dégagée
+        print("[DECISION] Verif LOS : PAS DE SYSTEME RAYCAST")
         return True
     
-    # Use raycast's internal LOS check
+    # Utilise la vérification LOS interne du raycast
     ai_pos = ai_pose[:2]
     human_pos = human_pose[:2]
     
     los_clear = raycast._check_line_of_sight(ai_pos, human_pos)
     
-    status = "CLEAR" if los_clear else "BLOCKED"
-    print("[DECISION] LOS check: {}".format(status))
+    status = "CLAIR" if los_clear else "BLOQUE"
+    print("[DECISION] Verif LOS : {}".format(status))
     
     return los_clear
 
@@ -78,18 +78,18 @@ def is_optimal_firing_range(context: Dict,
                             min_range: float = 1.2, 
                             max_range: float = 3.5) -> bool:
     """
-    Check if enemy is in optimal firing range.
+    Vérifie si l'ennemi est à portée de tir optimale.
     
-    Too close: risk of being hit back
-    Too far: accuracy decreases
+    Trop proche : risque de riposte
+    Trop loin : la précision diminue
     
     Args:
-        context: World state
-        min_range: Minimum safe distance
-        max_range: Maximum effective distance
+        context: État du monde
+        min_range: Distance minimale de sécurité
+        max_range: Distance effective maximale
         
     Returns:
-        True if in optimal range
+        True si dans la portée optimale
     """
     ai_pose = context.get('ai_pose')
     human_pose = context.get('human_pose')
@@ -104,7 +104,7 @@ def is_optimal_firing_range(context: Dict,
     
     in_range = min_range <= distance <= max_range
     
-    print("[DECISION] Firing range check: distance={:.2f}m, optimal={}".format(
+    print("[DECISION] Verif portée tir : distance={:.2f}m, optimal={}".format(
         distance, in_range))
     
     return in_range
@@ -112,23 +112,23 @@ def is_optimal_firing_range(context: Dict,
 
 def find_nearest_cover(context: Dict) -> Optional[Tuple[float, float]]:
     """
-    Find nearest cover position relative to enemy.
+    Trouve la position de couverture la plus proche par rapport à l'ennemi.
     
-    Cover = obstacle that blocks line of sight to enemy.
+    Couverture = obstacle qui bloque la ligne de vue vers l'ennemi.
     
     Args:
-        context: World state with occupancy grid
+        context: État du monde avec grille d'occupation
         
     Returns:
-        (x, y) position of best cover, or None
+        (x, y) position de la meilleure couverture, ou None
         
-    Algorithm:
-        1. Get all obstacle cells from grid
-        2. For each obstacle, check if it blocks LOS to enemy
-        3. Rank by:
-           - Distance to AI (closer is better)
-           - Cover effectiveness (blocks LOS well)
-        4. Return best position
+    Algorithme :
+        1. Récupère toutes les cellules d'obstacle de la grille
+        2. Pour chaque obstacle, vérifie s'il bloque la LOS vers l'ennemi
+        3. Classe par :
+           - Distance à l'IA (plus proche est mieux)
+           - Efficacité de la couverture (bloque bien la LOS)
+        4. Retourne la meilleure position
     """
     ai_pose = context.get('ai_pose')
     human_pose = context.get('human_pose')
@@ -140,51 +140,51 @@ def find_nearest_cover(context: Dict) -> Optional[Tuple[float, float]]:
     ai_pos = np.array(ai_pose[:2])
     human_pos = np.array(human_pose[:2])
     
-    # Direction from enemy to AI
+    # Direction de l'ennemi vers l'IA
     direction = ai_pos - human_pos
     dist = np.linalg.norm(direction)
     if dist < 0.1:
         return None
     direction = direction / dist
     
-    # Look for cover positions: move perpendicular to enemy direction
+    # Cherche des positions de couverture : déplacement perpendiculaire à la direction ennemie
     perpendicular = np.array([-direction[1], direction[0]])
     
-    # Check positions to the left and right of current position
-    cover_distance = 0.5  # meters from current position
+    # Vérifie les positions à gauche et à droite de la position actuelle
+    cover_distance = 0.5  # mètres de la position actuelle
     
     candidates = [
         ai_pos + perpendicular * cover_distance,
         ai_pos - perpendicular * cover_distance,
-        ai_pos + direction * cover_distance,  # Move away from enemy
+        ai_pos + direction * cover_distance,  # S'éloigne de l'ennemi
     ]
     
-    # Find valid cover position (within arena bounds)
+    # Trouve une position de couverture valide (dans les limites de l'arène)
     for candidate in candidates:
         x, y = candidate
         if 0 < x < grid.width_m and 0 < y < grid.height_m:
             if not grid.is_occupied(x, y):
-                print("[DECISION] Cover found at ({:.2f}, {:.2f})".format(x, y))
+                print("[DECISION] Couverture trouvée à ({:.2f}, {:.2f})".format(x, y))
                 return (x, y)
     
-    print("[DECISION] No cover found")
+    print("[DECISION] Aucune couverture trouvée")
     return None
 
 
 def should_retreat(context: Dict) -> bool:
     """
-    Comprehensive retreat decision.
+    Décision de repli complète.
     
-    Retreat if:
-    - Enemy too close AND has LOS
-    - Low health (future feature)
-    - Surrounded
+    Repli si :
+    - Ennemi trop proche ET a la LOS
+    - Santé faible (fonctionnalité future)
+    - Encerclé
     
     Args:
-        context: World state
+        context: État du monde
         
     Returns:
-        True if should retreat
+        True si devrait se replier
     """
     too_close = is_enemy_too_close(context)
     los = has_line_of_sight(context)
@@ -192,31 +192,31 @@ def should_retreat(context: Dict) -> bool:
     should_run = too_close and los
     
     if should_run:
-        print("[DECISION] RETREAT triggered: enemy too close with LOS")
+        print("[DECISION] REPLI déclenché : ennemi trop proche avec LOS")
     
     return should_run
 
 
 def calculate_flank_position(context: Dict) -> Optional[Tuple[float, float]]:
     """
-    Calculate optimal flanking position.
+    Calcule la position de contournement optimale.
     
-    Goal: position that:
-    - Gives AI line of sight to enemy
-    - Is NOT in enemy's current line of sight
-    - Uses cover for approach
+    But : position qui :
+    - Donne à l'IA une ligne de vue sur l'ennemi
+    - N'est PAS dans la ligne de vue actuelle de l'ennemi
+    - Utilise une couverture pour l'approche
     
     Args:
-        context: World state
+        context: État du monde
         
     Returns:
-        (x, y) target flanking position
+        (x, y) position cible de contournement
         
-    Algorithm:
-        1. Get enemy position and orientation
-        2. Find positions 90 deg left/right of enemy facing
-        3. Filter by cover availability during approach
-        4. Choose closest valid position
+    Algorithme :
+        1. Récupère position et orientation ennemi
+        2. Trouve positions 90 deg gauche/droite de l'orientation ennemie
+        3. Filtre par disponibilité couverture pendant l'approche
+        4. Choisit la position valide la plus proche
     """
     ai_pose = context.get('ai_pose')
     human_pose = context.get('human_pose')
@@ -229,21 +229,21 @@ def calculate_flank_position(context: Dict) -> Optional[Tuple[float, float]]:
     human_pos = np.array(human_pose[:2])
     human_theta = human_pose[2] if len(human_pose) > 2 else 0.0
     
-    # Enemy facing direction
+    # Direction du regard ennemi
     enemy_facing = np.array([np.cos(human_theta), np.sin(human_theta)])
     
-    # Flanking positions: 90 degrees to enemy facing
-    flank_distance = 1.5  # meters from enemy
+    # Positions de flanc : 90 degrés par rapport au regard ennemi
+    flank_distance = 1.5  # mètres de l'ennemi
     
-    # Left flank (perpendicular)
+    # Flanc gauche (perpendiculaire)
     left_perp = np.array([-enemy_facing[1], enemy_facing[0]])
     left_flank = human_pos + left_perp * flank_distance
     
-    # Right flank
+    # Flanc droit
     right_perp = np.array([enemy_facing[1], -enemy_facing[0]])
     right_flank = human_pos + right_perp * flank_distance
     
-    # Choose flank closest to AI
+    # Choisit le flanc le plus proche de l'IA
     dist_left = np.linalg.norm(ai_pos - left_flank)
     dist_right = np.linalg.norm(ai_pos - right_flank)
     
@@ -254,28 +254,28 @@ def calculate_flank_position(context: Dict) -> Optional[Tuple[float, float]]:
     
     x, y = chosen_flank
     
-    # Validate position is within arena
+    # Valide que la position est dans l'arène
     if grid is not None:
         if not (0 < x < grid.width_m and 0 < y < grid.height_m):
-            print("[DECISION] Flank position out of bounds")
+            print("[DECISION] Position contournement hors limites")
             return None
         if grid.is_occupied(x, y):
-            print("[DECISION] Flank position occupied")
+            print("[DECISION] Position contournement occupée")
             return None
     
-    print("[DECISION] Flank position: ({:.2f}, {:.2f})".format(x, y))
+    print("[DECISION] Position contournement : ({:.2f}, {:.2f})".format(x, y))
     return (x, y)
 
 
 def get_distance_to_enemy(context: Dict) -> float:
     """
-    Get distance between AI and enemy.
+    Obtient la distance entre l'IA et l'ennemi.
     
     Args:
-        context: World state
+        context: État du monde
         
     Returns:
-        Distance in meters, or infinity if poses unknown
+        Distance en mètres, ou l'infini si poses inconnues
     """
     ai_pose = context.get('ai_pose')
     human_pose = context.get('human_pose')
@@ -291,13 +291,13 @@ def get_distance_to_enemy(context: Dict) -> float:
 
 def get_angle_to_enemy(context: Dict) -> float:
     """
-    Get angle from AI to enemy.
+    Obtient l'angle de l'IA vers l'ennemi.
     
     Args:
-        context: World state
+        context: État du monde
         
     Returns:
-        Angle in radians, or 0 if poses unknown
+        Angle en radians, ou 0 si poses inconnues
     """
     ai_pose = context.get('ai_pose')
     human_pose = context.get('human_pose')

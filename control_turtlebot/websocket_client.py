@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-Module WebSocket Client
-Gère la communication avec le ROS Bridge via WebSocket
+Client WebSocket pour TurtleBot Controller.
+
+Ce module gere la communication bidirectionnelle avec le serveur ROS Bridge
+via WebSocket. Il fournit une interface thread-safe avec reconnexion
+automatique, gestion de file d'attente pour les commandes, et suivi
+des statistiques de connexion (latence, taux de succes).
+
+Classes:
+    WebSocketClient: Client WebSocket thread-safe avec reconnexion automatique.
 """
 
 import asyncio
@@ -41,22 +48,22 @@ class WebSocketClient:
         self.ping_count = 0
     
     def start(self):
-        """Démarre le client dans un thread"""
-        print(f"🔌 Connexion à {self.uri}...")
+        """Demarre le client dans un thread"""
+        print(f"[WS] Connexion a {self.uri}...")
         self.running = True
         self.thread = threading.Thread(target=self._run_async, daemon=True)
         self.thread.start()
         
         for i in range(100):
             if self.connected:
-                print(f"✅ Connecté au ROS Bridge!")
+                print(f"[WS] Connecte au ROS Bridge!")
                 return True
             time.sleep(0.1)
             
             if i % 10 == 9:
-                print(f"⏳ Tentative de connexion... ({i//10 + 1}s)")
+                print(f"[WS] Tentative de connexion... ({i//10 + 1}s)")
         
-        print("⚠️  Délai de connexion dépassé")
+        print("[WS] Delai de connexion depasse")
         return False
     
     def _run_async(self):
@@ -67,7 +74,7 @@ class WebSocketClient:
         try:
             self.loop.run_until_complete(self._main_loop())
         except Exception as e:
-            print(f"❌ Erreur boucle asyncio: {e}")
+            print(f"[WS] Erreur boucle asyncio: {e}")
         finally:
             self.loop.close()
     
@@ -79,7 +86,7 @@ class WebSocketClient:
                 self.last_connection_attempt = time.time()
                 
                 if self.connection_attempts > 1:
-                    print(f"🔄 Tentative de reconnexion #{self.connection_attempts}...")
+                    print(f"[WS] Tentative de reconnexion #{self.connection_attempts}...")
                 
                 async with websockets.connect(
                     self.uri,
@@ -89,23 +96,23 @@ class WebSocketClient:
                 ) as ws:
                     self.websocket = ws
                     self.connected = True
-                    self.last_status = "Connecté ✅"
+                    self.last_status = "Connecte"
                     
                     if self.connection_attempts > 1:
-                        print(f"✅ Reconnecté!")
+                        print(f"[WS] Reconnecte!")
                     
                     try:
                         welcome = await asyncio.wait_for(ws.recv(), timeout=5.0)
                         data = json.loads(welcome)
-                        robot_name = data.get('robot', 'Unknown')
-                        print(f"🤖 Robot: {robot_name}")
+                        robot_name = data.get('robot', 'Inconnu')
+                        print(f"[WS] Robot: {robot_name}")
                         
                         config = data.get('config', {})
-                        print(f"⚙️  Limites: linear=[{config.get('min_linear_vel')}, {config.get('max_linear_vel')}], "
-                              f"angular=±{config.get('max_angular_vel')}")
+                        print(f"[WS] Limites: linear=[{config.get('min_linear_vel')}, {config.get('max_linear_vel')}], "
+                              f"angular=+/-{config.get('max_angular_vel')}")
                     
                     except asyncio.TimeoutError:
-                        print("⚠️  Timeout en attente du message d'accueil")
+                        print("[WS] Timeout en attente du message d'accueil")
                     
                     await asyncio.gather(
                         self._send_loop(),
@@ -115,16 +122,16 @@ class WebSocketClient:
             
             except websockets.exceptions.WebSocketException as e:
                 self.connected = False
-                self.last_status = f"Déconnecté ❌"
-                print(f"⚠️  Connexion perdue: {e}")
+                self.last_status = f"Deconnecte"
+                print(f"[WS] Connexion perdue: {e}")
                 
                 if self.running:
                     await asyncio.sleep(self.reconnect_delay)
             
             except Exception as e:
                 self.connected = False
-                self.last_status = f"Erreur ❌"
-                print(f"❌ Erreur connexion: {type(e).__name__}: {e}")
+                self.last_status = f"Erreur"
+                print(f"[WS] Erreur connexion: {type(e).__name__}: {e}")
                 
                 if self.running:
                     await asyncio.sleep(self.reconnect_delay)
@@ -155,7 +162,7 @@ class WebSocketClient:
                             'timestamp': time.time()
                         }
                         await self.websocket.send(json.dumps(message))
-                        print("🚨 ARRÊT D'URGENCE envoyé!")
+                        print("[WS] ARRET D'URGENCE envoye!")
                     
                     elif msg_type == 'get_status':
                         message = {
@@ -185,7 +192,7 @@ class WebSocketClient:
             except websockets.exceptions.ConnectionClosed:
                 break
             except Exception as e:
-                print(f"⚠️  Erreur envoi: {e}")
+                print(f"[WS] Erreur envoi: {e}")
                 break
     
     async def _receive_loop(self):
@@ -199,16 +206,16 @@ class WebSocketClient:
                     if msg_type == 'cmd_accepted':
                         self.commands_accepted += 1
                         reason = data.get('reason', 'OK')
-                        self.last_status = f"✅ {reason}"
+                        self.last_status = f"Accepte: {reason}"
                     
                     elif msg_type == 'cmd_rejected':
                         self.commands_rejected += 1
-                        reason = data.get('reason', 'Bloqué')
-                        self.last_status = f"❌ {reason}"
-                        print(f"⚠️  Commande rejetée: {reason}")
+                        reason = data.get('reason', 'Bloque')
+                        self.last_status = f"Rejete: {reason}"
+                        print(f"[WS] Commande rejetee: {reason}")
                     
                     elif msg_type == 'status_broadcast':
-                        self.last_status = data.get('last_status', 'Unknown')
+                        self.last_status = data.get('last_status', 'Inconnu')
                         self.safety_info = data.get('debug', {})
                     
                     elif msg_type == 'status':
@@ -229,21 +236,21 @@ class WebSocketClient:
                                 pass
                     
                     elif msg_type == 'emergency_stop_ack':
-                        print("✅ Arrêt d'urgence confirmé par le serveur")
+                        print("[WS] Arret d'urgence confirme par le serveur")
                     
                     elif msg_type == 'error':
-                        reason = data.get('reason', 'Unknown')
-                        print(f"❌ Erreur serveur: {reason}")
+                        reason = data.get('reason', 'Inconnu')
+                        print(f"[WS] Erreur serveur: {reason}")
                 
                 except json.JSONDecodeError as e:
-                    print(f"⚠️  Erreur décodage JSON: {e}")
+                    print(f"[WS] Erreur decodage JSON: {e}")
                 except Exception as e:
-                    print(f"⚠️  Erreur traitement message: {e}")
+                    print(f"[WS] Erreur traitement message: {e}")
         
         except websockets.exceptions.ConnectionClosed:
             pass
         except Exception as e:
-            print(f"⚠️  Erreur réception: {e}")
+            print(f"[WS] Erreur reception: {e}")
     
     def send_cmd_vel(self, linear_x, angular_z):
         """Envoie une commande (thread-safe)"""
@@ -291,8 +298,8 @@ class WebSocketClient:
         }
     
     def stop(self):
-        """Arrête le client"""
-        print("🛑 Arrêt du client WebSocket...")
+        """Arrete le client"""
+        print("[WS] Arret du client WebSocket...")
         self.running = False
         
         if self.thread and self.thread.is_alive():

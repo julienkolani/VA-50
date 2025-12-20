@@ -1,4 +1,4 @@
-"""Base controller abstract class."""
+"""Classe abstraite de contrôleur de base."""
 
 from abc import ABC, abstractmethod
 from typing import Tuple, Dict, Any
@@ -9,68 +9,68 @@ logger = logging.getLogger(__name__)
 
 class BaseController(ABC):
     """
-    Abstract base class for all robot controllers.
+    Classe de base abstraite pour tous les contrôleurs de robot.
     
-    Controllers translate input (keyboard, joystick, etc.) 
-    into robot velocity commands (linear, angular).
+    Les contrôleurs traduisent les entrées (clavier, joystick, etc.) 
+    en commandes de vitesse pour le robot (linéaire, angulaire).
     """
     
     def __init__(self, config: Dict[str, Any]):
         """
-        Initialize controller with configuration.
+        Initialise le contrôleur avec la configuration.
         
         Args:
-            config: Controller-specific configuration dictionary
+            config: Dictionnaire de configuration spécifique au contrôleur
         """
         self.config = config
         self.linear_cmd = 0.0
         self.angular_cmd = 0.0
         self._enabled = True
         
-        logger.info(f"{self.__class__.__name__} initialized")
+        logger.info(f"{self.__class__.__name__} initialisé")
     
     @abstractmethod
     def update(self, events: list) -> None:
         """
-        Update controller state based on input events.
+        Met à jour l'état du contrôleur basé sur les événements d'entrée.
         
         Args:
-            events: List of pygame events to process
+            events: Liste des événements pygame à traiter
         """
         pass
     
     @abstractmethod
     def get_command(self) -> Tuple[float, float]:
         """
-        Get current velocity command.
+        Obtient la commande de vitesse actuelle.
         
         Returns:
-            Tuple of (linear_velocity, angular_velocity)
+            Tuple de (vitesse_lineaire, vitesse_angulaire)
         """
         pass
     
     @abstractmethod
     def emergency_stop(self) -> None:
-        """Execute emergency stop - immediately set all velocities to zero."""
+        """Exécute l'arrêt d'urgence - met immédiatement toutes les vitesses à zéro."""
         pass
     
     def enable(self) -> None:
-        """Enable the controller."""
+        """Active le contrôleur."""
         self._enabled = True
-        logger.info(f"{self.__class__.__name__} enabled")
+        logger.info(f"{self.__class__.__name__} activé")
     
     def disable(self) -> None:
-        """Disable the controller and stop robot."""
+        """Désactive le contrôleur et arrête le robot."""
         self._enabled = False
         self.emergency_stop()
-        logger.info(f"{self.__class__.__name__} disabled")
+        logger.info(f"{self.__class__.__name__} désactivé")
     
     def is_enabled(self) -> bool:
-        """Check if controller is enabled."""
+        """Vérifie si le contrôleur est activé."""
         return self._enabled
     
     def reset(self) -> None:
-        """Reset controller to initial state."""
+        """Réinitialise le contrôleur à l'état initial."""
         self.linear_cmd = 0.0
         self.angular_cmd = 0.0
-        logger.debug(f"{self.__class__.__name__} reset")
+        logger.debug(f"{self.__class__.__name__} réinitialisé")

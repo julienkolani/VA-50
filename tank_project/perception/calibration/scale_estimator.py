@@ -1,7 +1,7 @@
 """
 Scale Estimator - Estimation Échelle Métrique
 
-Estime le facteur d'échelle de AV → Monde en mètres
+Estime le facteur d'échelle de AV -> Monde en mètres
 à partir d'un marqueur ArUco physique de taille connue.
 
 Logs: [SCALE_EST] prefix
@@ -60,7 +60,7 @@ class ScaleEstimator:
         """
         scale = self.estimate_from_corners(corners_av)
         self.samples.append(scale)
-        print("[SCALE_EST] Sample {}: scale={:.4f} m/unit".format(len(self.samples), scale))
+        print("[SCALE_EST] Échantillon {} : échelle={:.4f} m/unité".format(len(self.samples), scale))
         
     def get_average_scale(self) -> float:
         """
@@ -78,8 +78,8 @@ class ScaleEstimator:
         avg = np.mean(self.samples)
         std = np.std(self.samples)
         
-        print("[SCALE_EST] Average scale from {} samples: "
-              "{:.4f} m/unit (std={:.4f})".format(len(self.samples), avg, std))
+        print("[SCALE_EST] Échelle moyenne sur {} échantillons : "
+              "{:.4f} m/unité (std={:.4f})".format(len(self.samples), avg, std))
         
         return avg
     

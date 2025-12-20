@@ -42,7 +42,7 @@ class ArenaSolver:
         self.width_m = av_width * scale
         self.height_m = av_height * scale
         
-        print("[ARENA_SOLVER] Arena dimensions: "
+        print("[ARENA_SOLVER] Dimensions de l'arène : "
               "{:.2f}m x {:.2f}m".format(self.width_m, self.height_m))
         
         return (self.width_m, self.height_m)
@@ -67,7 +67,7 @@ class ArenaSolver:
         self.width_m = width
         self.height_m = height
         
-        print("[ARENA_SOLVER] Arena dimensions from corners: "
+        print("[ARENA_SOLVER] Dimensions de l'arène depuis coins : "
               "{:.2f}m x {:.2f}m".format(width, height))
         
         return (width, height)

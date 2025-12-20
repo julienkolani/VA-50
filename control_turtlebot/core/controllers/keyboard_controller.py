@@ -1,4 +1,4 @@
-"""Keyboard controller for TurtleBot."""
+"""Contrôleur clavier pour TurtleBot."""
 
 import pygame
 import math
@@ -11,20 +11,20 @@ logger = logging.getLogger(__name__)
 
 class KeyboardController(BaseController):
     """
-    Keyboard controller with physics-based movement.
+    Contrôleur clavier avec mouvement basé sur la physique.
     
-    Controls:
-        Arrow Keys / WASD - Movement
-        Space - Emergency stop
-        + / - - Adjust speed factor
+    Contrôles :
+        Flèches / WASD - Mouvement
+        Espace - Arrêt d'urgence
+        + / - - Ajuster le facteur de vitesse
     """
     
     def __init__(self, config: dict):
         """
-        Initialize keyboard controller.
+        Initialise le contrôleur clavier.
         
         Args:
-            config: Keyboard configuration from controls.yaml
+            config: Configuration clavier depuis controls.yaml
         """
         super().__init__(config)
         
@@ -72,7 +72,7 @@ class KeyboardController(BaseController):
             self.velocity_linear *= ratio
             self.velocity_angular *= ratio
             self._update_scaled_params()
-            logger.info(f"Speed factor increased to {self.speed_factor:.2f}")
+            logger.info(f"Facteur de vitesse augmenté à {self.speed_factor:.2f}")
     
     def decrease_speed(self):
         """Decrease speed factor."""
@@ -84,14 +84,14 @@ class KeyboardController(BaseController):
             self.velocity_linear *= ratio
             self.velocity_angular *= ratio
             self._update_scaled_params()
-            logger.info(f"Speed factor decreased to {self.speed_factor:.2f}")
+            logger.info(f"Facteur de vitesse diminué à {self.speed_factor:.2f}")
     
     def update(self, events: list) -> None:
         """
-        Update controller based on keyboard input.
+        Met à jour le contrôleur basé sur l'entrée clavier.
         
         Args:
-            events: List of pygame events
+            events: Liste des événements pygame
         """
         if not self._enabled:
             return
@@ -169,23 +169,23 @@ class KeyboardController(BaseController):
     
     def get_command(self) -> Tuple[float, float]:
         """
-        Get current velocity command.
+        Obtient la commande de vitesse actuelle.
         
         Returns:
-            Tuple of (linear_velocity_m/s, angular_velocity_rad/s)
+            Tuple de (vitesse_lineaire_m/s, vitesse_angulaire_rad/s)
         """
         if not self._enabled:
             return (0.0, 0.0)
         return (self.linear_cmd, self.angular_cmd)
     
     def emergency_stop(self) -> None:
-        """Execute emergency stop."""
+        """Exécute l'arrêt d'urgence."""
         self.velocity_linear = 0.0
         self.velocity_angular = 0.0
         self.linear_cmd = 0.0
         self.angular_cmd = 0.0
-        logger.warning("Emergency stop triggered")
+        logger.warning("Arrêt d'urgence déclenché")
     
     def get_speed_factor(self) -> float:
-        """Get current speed factor."""
+        """Obtient le facteur de vitesse actuel."""
         return self.speed_factor

@@ -1,4 +1,4 @@
-"""UI theme management for professional styling."""
+"""Gestion du thème UI pour un style professionnel."""
 
 import pygame
 from dataclasses import dataclass
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ColorScheme:
-    """Professional color scheme."""
+    """Schéma de couleurs professionnel."""
     background: Tuple[int, int, int]
     panel: Tuple[int, int, int]
     panel_accent: Tuple[int, int, int]
@@ -30,17 +30,17 @@ class ColorScheme:
 
 class Theme:
     """
-    UI theme with colors and fonts.
+    Thème UI avec couleurs et polices.
     
-    Provides consistent styling across the application.
+    Fournit un style cohérent à travers l'application.
     """
     
     def __init__(self, config: Dict):
         """
-        Initialize theme from configuration.
+        Initialise le thème depuis la configuration.
         
         Args:
-            config: UI configuration dictionary
+            config: Dictionnaire de configuration UI
         """
         theme_cfg = config.get('theme', {})
         font_cfg = config.get('fonts', {})
@@ -64,7 +64,10 @@ class Theme:
             grid=tuple(colors_dict.get('grid', [35, 38, 45]))
         )
         
-        # Load fonts
+        theme_cfg = config.get('theme', {})
+        font_cfg = config.get('fonts', {})
+        
+        # Crée le schéma de couleurs depuis la config
         self.fonts = self._load_fonts(font_cfg)
         
         logger.info(f"Theme loaded: {theme_cfg.get('name', 'unnamed')}")
@@ -81,7 +84,7 @@ class Theme:
         """
         fonts = {}
         
-        # Font sizes from config
+        # Font sizes from config (already english code keywords)
         sizes = {
             'title': font_cfg.get('title_size', 32),
             'subtitle': font_cfg.get('subtitle_size', 24),
@@ -90,7 +93,7 @@ class Theme:
             'tiny': font_cfg.get('tiny_size', 14)
         }
         
-        # Try to load custom font, fallback to default
+        # Essaie de charger police perso, repli sur defaut
         font_path = font_cfg.get('font_file', None)
         
         for name, size in sizes.items():
@@ -100,20 +103,20 @@ class Theme:
                 else:
                     fonts[name] = pygame.font.SysFont('Arial', size, bold=(name == 'title'))
             except Exception as e:
-                logger.warning(f"Failed to load font '{name}': {e}")
+                logger.warning(f"Échec chargement police '{name}' : {e}")
                 fonts[name] = pygame.font.SysFont(None, size)
         
         return fonts
     
     def get_font(self, size: str = 'normal') -> pygame.font.Font:
         """
-        Get font by size name.
+        Obtient la police par nom de taille.
         
         Args:
-            size: Font size name ('title', 'subtitle', 'normal', 'small', 'tiny')
+            size: Nom taille police ('title', 'subtitle', 'normal', 'small', 'tiny')
             
         Returns:
-            Pygame font object
+            Objet police Pygame
         """
         return self.fonts.get(size, self.fonts['normal'])
     
@@ -133,13 +136,13 @@ class Theme:
     def draw_panel(self, surface: pygame.Surface, rect: pygame.Rect, 
                   accent: bool = False, radius: int = 12):
         """
-        Draw a styled panel.
+        Dessine un panneau stylisé.
         
         Args:
-            surface: Surface to draw on
-            rect: Panel rectangle
-            accent: If True, use accent color
-            radius: Corner radius
+            surface: Surface sur laquelle dessiner
+            rect: Rectangle panneau
+            accent: Si True, utilise couleur accent
+            radius: Rayon coins
         """
         color = self.colors.panel_accent if accent else self.colors.panel
         self.draw_rounded_rect(surface, rect, color, radius)
@@ -147,15 +150,15 @@ class Theme:
     def render_text(self, text: str, font_size: str = 'normal', 
                     color: Tuple[int, int, int] = None) -> pygame.Surface:
         """
-        Render text with theme font.
+        Rend le texte avec la police du thème.
         
         Args:
-            text: Text to render
-            font_size: Font size name
-            color: Text color (default: theme text color)
+            text: Texte à rendre
+            font_size: Nom taille police
+            color: Couleur texte (défaut: couleur texte thème)
             
         Returns:
-            Rendered text surface
+            Surface texte rendu
         """
         if color is None:
             color = self.colors.text

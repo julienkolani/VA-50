@@ -1,14 +1,14 @@
 """
-Path Utilities - Path Processing and Optimization
+Utilitaires de Chemin - Traitement et Optimisation de Chemin
 
-Utilities for working with planned paths:
-- Path smoothing
-- Waypoint simplification (Douglas-Peucker)
-- Path validation
-- Distance calculation
+Utilitaires pour travailler avec les chemins planifiés :
+- Lissage de chemin
+- Simplification de waypoints (Douglas-Peucker)
+- Validation de chemin
+- Calcul de distance
 - Interpolation
 
-Takes raw A* output and makes it execution-ready.
+Prend la sortie brute de A* et la rend prête à l'exécution.
 """
 
 import numpy as np
@@ -21,24 +21,24 @@ def smooth_path(waypoints: List[Tuple[float, float]],
                 tolerance: float = 0.01,
                 max_iterations: int = 100) -> List[Tuple[float, float]]:
     """
-    Smooth a path using gradient descent.
+    Lisse un chemin en utilisant la descente de gradient.
     
-    Balances staying close to original path vs smoothness.
+    Équilibre entre rester proche du chemin original vs lissage.
     
     Args:
-        waypoints: Original path [(x1,y1), ...]
-        weight_data: How much to stay close to original
-        weight_smooth: How much to smooth
-        tolerance: Convergence threshold
-        max_iterations: Maximum iterations
+        waypoints: Chemin original [(x1,y1), ...]
+        weight_data: À quel point rester proche de l'original
+        weight_smooth: À quel point lisser
+        tolerance: Seuil de convergence
+        max_iterations: Itérations maximum
         
     Returns:
-        Smoothed path
+        Chemin lissé
     """
     if len(waypoints) <= 2:
         return waypoints
     
-    # Convert to numpy array for easier manipulation
+    # Convertit en array numpy pour manipulation plus facile
     path = np.array(waypoints, dtype=np.float64)
     smoothed = path.copy()
     
@@ -47,15 +47,15 @@ def smooth_path(waypoints: List[Tuple[float, float]],
     for iteration in range(max_iterations):
         change = 0.0
         
-        # Don't modify first and last points
+        # Ne modifie pas le premier et le dernier point
         for i in range(1, n_points - 1):
-            for j in range(2):  # x and y
+            for j in range(2):  # x et y
                 old_val = smoothed[i, j]
                 
-                # Data term: stay close to original
+                # Terme de données : rester proche de l'original
                 data_term = weight_data * (path[i, j] - smoothed[i, j])
                 
-                # Smooth term: average of neighbors
+                # Terme de lissage : moyenne des voisins
                 smooth_term = weight_smooth * (
                     smoothed[i-1, j] + smoothed[i+1, j] - 2 * smoothed[i, j]
                 )
@@ -63,7 +63,7 @@ def smooth_path(waypoints: List[Tuple[float, float]],
                 smoothed[i, j] += data_term + smooth_term
                 change += abs(smoothed[i, j] - old_val)
         
-        # Check convergence
+        # Vérifie la convergence
         if change < tolerance:
             break
     
@@ -73,103 +73,103 @@ def smooth_path(waypoints: List[Tuple[float, float]],
 def simplify_path_douglas_peucker(waypoints: List[Tuple[float, float]], 
                                   epsilon: float = 0.05) -> List[Tuple[float, float]]:
     """
-    Simplify path using Douglas-Peucker algorithm.
+    Simplifie le chemin avec l'algorithme Douglas-Peucker.
     
-    Removes waypoints that are nearly collinear.
+    Supprime les waypoints qui sont presque colinéaires.
     
     Args:
-        waypoints: Original path
-        epsilon: Maximum deviation tolerance in meters
+        waypoints: Chemin original
+        epsilon: Tolérance de déviation maximale en mètres
         
     Returns:
-        Simplified path with fewer waypoints
+        Chemin simplifié avec moins de waypoints
         
-    Algorithm:
-        1. Find point farthest from line between start and end
-        2. If distance < epsilon, remove all intermediate points
-        3. Otherwise, recursively apply to [start, farthest] and [farthest, end]
+    Algorithme :
+        1. Trouve le point le plus éloigné de la ligne entre départ et fin
+        2. Si distance < epsilon, supprime tous les points intermédiaires
+        3. Sinon, applique récursivement à [départ, plus_lointain] et [plus_lointain, fin]
     """
     if len(waypoints) <= 2:
         return waypoints
     
-    # Convert to numpy for calculations
+    # Convertit en numpy pour les calculs
     points = np.array(waypoints)
     
-    # Find point with maximum distance from line (start -> end)
+    # Trouve le point avec la distance maximale de la ligne (départ -> fin)
     start = points[0]
     end = points[-1]
     
-    # Line vector
+    # Vecteur ligne
     line_vec = end - start
     line_len = np.linalg.norm(line_vec)
     
     if line_len < 1e-10:
-        # Start and end are same point
+        # Départ et fin sont le même point
         return [waypoints[0], waypoints[-1]]
     
     line_unit = line_vec / line_len
     
-    # Find perpendicular distances
+    # Trouve les distances perpendiculaires
     max_dist = 0.0
     max_idx = 0
     
     for i in range(1, len(points) - 1):
-        # Vector from start to point
+        # Vecteur du départ au point
         vec_to_point = points[i] - start
         
-        # Project onto line
+        # Projette sur la ligne
         proj_length = np.dot(vec_to_point, line_unit)
         proj_point = start + proj_length * line_unit
         
-        # Perpendicular distance
+        # Distance perpendiculaire
         dist = np.linalg.norm(points[i] - proj_point)
         
         if dist > max_dist:
             max_dist = dist
             max_idx = i
     
-    # If max distance is less than epsilon, simplify to just endpoints
+    # Si la distance max est inférieure à epsilon, simplifie aux extrémités
     if max_dist < epsilon:
         return [waypoints[0], waypoints[-1]]
     
-    # Otherwise, recursively simplify
+    # Sinon, simplifie récursivement
     left_simplified = simplify_path_douglas_peucker(waypoints[:max_idx + 1], epsilon)
     right_simplified = simplify_path_douglas_peucker(waypoints[max_idx:], epsilon)
     
-    # Combine (avoid duplicating the split point)
+    # Combine (évite de dupliquer le point de coupure)
     return left_simplified[:-1] + right_simplified
 
 
 def validate_path(waypoints: List[Tuple[float, float]], 
                  occupancy_grid) -> bool:
     """
-    Check if path is collision-free.
+    Vérifie si le chemin est sans collision.
     
     Args:
-        waypoints: Path to validate
-        occupancy_grid: Current occupancy grid
+        waypoints: Chemin à valider
+        occupancy_grid: Grille d'occupation actuelle
         
     Returns:
-        True if path is valid (no collisions)
+        True si le chemin est valide (pas de collisions)
     """
     if len(waypoints) < 2:
         return True
     
-    # Check each waypoint
+    # Vérifie chaque waypoint
     for x, y in waypoints:
         if not (0 <= x <= occupancy_grid.width_m and 0 <= y <= occupancy_grid.height_m):
             return False
         if occupancy_grid.is_occupied(x, y):
             return False
     
-    # Check line segments between waypoints
+    # Vérifie les segments de ligne entre waypoints
     resolution = occupancy_grid.resolution
     
     for i in range(len(waypoints) - 1):
         x1, y1 = waypoints[i]
         x2, y2 = waypoints[i + 1]
         
-        # Sample points along segment
+        # Echantillonne les points le long du segment
         dist = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         n_samples = max(2, int(dist / resolution) + 1)
         
@@ -185,13 +185,13 @@ def validate_path(waypoints: List[Tuple[float, float]],
 
 def calculate_path_length(waypoints: List[Tuple[float, float]]) -> float:
     """
-    Calculate total path length in meters.
+    Calcule la longueur totale du chemin en mètres.
     
     Args:
-        waypoints: Path [(x1,y1), ...]
+        waypoints: Chemin [(x1,y1), ...]
         
     Returns:
-        Total length in meters
+        Longueur totale en mètres
     """
     if len(waypoints) < 2:
         return 0.0
@@ -208,16 +208,16 @@ def calculate_path_length(waypoints: List[Tuple[float, float]]) -> float:
 def interpolate_path(waypoints: List[Tuple[float, float]], 
                     resolution: float = 0.05) -> List[Tuple[float, float]]:
     """
-    Densify path by interpolating between waypoints.
+    Densifie le chemin en interpolant entre les waypoints.
     
-    Useful for smooth visualization or fine-grained control.
+    Utile pour une visualisation fluide ou un contrôle fin.
     
     Args:
-        waypoints: Sparse path
-        resolution: Desired spacing in meters
+        waypoints: Chemin clairsemé
+        resolution: Espacement désiré en mètres
         
     Returns:
-        Dense path with points every ~resolution meters
+        Chemin dense avec des points tous les ~resolution mètres
     """
     if len(waypoints) < 2:
         return waypoints
@@ -228,15 +228,15 @@ def interpolate_path(waypoints: List[Tuple[float, float]],
         x1, y1 = waypoints[i]
         x2, y2 = waypoints[i + 1]
         
-        # Distance between consecutive waypoints
+        # Distance entre waypoints consécutifs
         dist = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         
         if dist < resolution:
-            # No interpolation needed
+            # Pas d'interpolation nécessaire
             dense_path.append((x2, y2))
             continue
         
-        # Number of intermediate points
+        # Nombre de points intermédiaires
         n_points = int(dist / resolution)
         
         for j in range(1, n_points + 1):
@@ -252,34 +252,34 @@ def interpolate_path(waypoints: List[Tuple[float, float]],
 
 def get_path_curvature(waypoints: List[Tuple[float, float]]) -> List[float]:
     """
-    Calculate curvature at each waypoint.
+    Calcule la courbure à chaque waypoint.
     
-    Useful for speed adaptation (slow down at sharp turns).
+    Utile pour l'adaptation de vitesse (ralentir aux virages serrés).
     
     Args:
-        waypoints: Path [(x1,y1), ...]
+        waypoints: Chemin [(x1,y1), ...]
         
     Returns:
-        List of curvature values (1/radius, 0 for straight)
+        Liste des valeurs de courbure (1/rayon, 0 pour ligne droite)
     """
     if len(waypoints) < 3:
         return [0.0] * len(waypoints)
     
-    curvatures = [0.0]  # First point has no curvature
+    curvatures = [0.0]  # Le premier point n'a pas de courbure
     
     for i in range(1, len(waypoints) - 1):
         p0 = np.array(waypoints[i - 1])
         p1 = np.array(waypoints[i])
         p2 = np.array(waypoints[i + 1])
         
-        # Vectors
+        # Vecteurs
         v1 = p1 - p0
         v2 = p2 - p1
         
-        # Cross product magnitude (2D)
+        # Magnitude produit vectoriel (2D)
         cross = abs(v1[0] * v2[1] - v1[1] * v2[0])
         
-        # Segment lengths
+        # Longueurs segments
         len1 = np.linalg.norm(v1)
         len2 = np.linalg.norm(v2)
         
@@ -287,11 +287,11 @@ def get_path_curvature(waypoints: List[Tuple[float, float]]) -> List[float]:
             curvatures.append(0.0)
             continue
         
-        # Curvature approximation: 2 * sin(angle) / chord_length
-        # Simplified: cross / (len1 * len2)
+        # Approximation courbure : 2 * sin(angle) / longueur_corde
+        # Simplifié : cross / (len1 * len2)
         curvature = cross / (len1 * len2)
         curvatures.append(curvature)
     
-    curvatures.append(0.0)  # Last point has no curvature
+    curvatures.append(0.0)  # Le dernier point n'a pas de courbure
     
     return curvatures

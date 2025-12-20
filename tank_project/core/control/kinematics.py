@@ -1,12 +1,12 @@
 """
-Kinematics - Robot Motion Model
+Cinématique - Modèle de mouvement robot
 
-Differential drive robot kinematics for Turtlebot Burger:
-- Forward kinematics: (v, ω) → (dx, dy, dθ)
-- Inverse kinematics: velocity constraints
-- Dynamics model (simplified)
+Cinématique de robot à entraînement différentiel pour Turtlebot Burger :
+- Cinématique directe : (v, ω) -> (dx, dy, dθ)
+- Cinématique inverse : contraintes de vitesse
+- Modèle dynamique (simplifié)
 
-Used for simulation and control validation.
+Utilisé pour la simulation et la validation du contrôle.
 """
 
 import numpy as np
@@ -15,20 +15,20 @@ from typing import Tuple
 
 class DifferentialDriveKinematics:
     """
-    Kinematics for differential drive robot (Turtlebot Burger).
+    Cinématique pour robot à entraînement différentiel (Turtlebot Burger).
     
-    Robot parameters:
-    - Wheel base: distance between wheels
-    - Wheel radius
+    Paramètres du robot :
+    - Empattement : distance entre les roues
+    - Rayon des roues
     """
     
     def __init__(self, wheel_base: float = 0.16, wheel_radius: float = 0.033):
         """
-        Initialize kinematics model.
+        Initialise le modèle cinématique.
         
         Args:
-            wheel_base: Distance between wheels in meters (Burger: 0.16m)
-            wheel_radius: Wheel radius in meters (Burger: 0.033m)
+            wheel_base: Distance entre les roues en mètres (Burger : 0.16m)
+            wheel_radius: Rayon des roues en mètres (Burger : 0.033m)
         """
         self.wheel_base = wheel_base
         self.wheel_radius = wheel_radius
@@ -39,35 +39,35 @@ class DifferentialDriveKinematics:
                           current_pose: Tuple[float, float, float],
                           dt: float) -> Tuple[float, float, float]:
         """
-        Compute new pose from velocity commands.
+        Calcule la nouvelle pose à partir des commandes de vitesse.
         
         Args:
-            v: Linear velocity in m/s
-            omega: Angular velocity in rad/s
-            current_pose: (x, y, theta) current pose
-            dt: Time step in seconds
+            v: Vitesse linéaire en m/s
+            omega: Vitesse angulaire en rad/s
+            current_pose: (x, y, theta) pose actuelle
+            dt: Pas de temps en secondes
             
         Returns:
-            (x_new, y_new, theta_new) updated pose
+            (x_new, y_new, theta_new) pose mise à jour
             
-        Equations:
+        Équations :
             dx = v * cos(θ) * dt
             dy = v * sin(θ) * dt
             dθ = ω * dt
         """
         x, y, theta = current_pose
         
-        # Update orientation first
+        # Mise à jour de l'orientation en premier
         theta_new = theta + omega * dt
         
-        # Average theta for more accurate integration
+        # Theta moyen pour une intégration plus précise
         theta_avg = theta + 0.5 * omega * dt
         
-        # Update position
+        # Mise à jour de la position
         x_new = x + v * np.cos(theta_avg) * dt
         y_new = y + v * np.sin(theta_avg) * dt
         
-        # Normalize theta to [-pi, pi]
+        # Normalisation de theta entre [-pi, pi]
         theta_new = np.arctan2(np.sin(theta_new), np.cos(theta_new))
         
         return (x_new, y_new, theta_new)
@@ -76,14 +76,14 @@ class DifferentialDriveKinematics:
                                  v_left: float, 
                                  v_right: float) -> Tuple[float, float]:
         """
-        Convert wheel velocities to body velocities.
+        Convertit les vitesses des roues en vitesses du corps.
         
         Args:
-            v_left: Left wheel velocity in m/s
-            v_right: Right wheel velocity in m/s
+            v_left: Vitesse roue gauche en m/s
+            v_right: Vitesse roue droite en m/s
             
         Returns:
-            (v, omega): body linear and angular velocities
+            (v, omega): vitesses linéaire et angulaire du corps
         """
         v = (v_right + v_left) / 2.0
         omega = (v_right - v_left) / self.wheel_base
@@ -94,14 +94,14 @@ class DifferentialDriveKinematics:
                                  v: float, 
                                  omega: float) -> Tuple[float, float]:
         """
-        Convert body velocities to wheel velocities.
+        Convertit les vitesses du corps en vitesses des roues.
         
         Args:
-            v: Linear velocity in m/s
-            omega: Angular velocity in rad/s
+            v: Vitesse linéaire en m/s
+            omega: Vitesse angulaire en rad/s
             
         Returns:
-            (v_left, v_right): wheel velocities in m/s
+            (v_left, v_right): vitesses des roues en m/s
         """
         v_left = v - (omega * self.wheel_base) / 2.0
         v_right = v + (omega * self.wheel_base) / 2.0
@@ -114,12 +114,12 @@ class DifferentialDriveKinematics:
                            max_v: float = 0.22,
                            max_omega: float = 2.84) -> Tuple[float, float]:
         """
-        Validate and clamp velocities to robot limits.
+        Valide et limite les vitesses aux contraintes du robot.
         
         Args:
-            v, omega: Desired velocities
-            max_v: Maximum linear velocity (Burger: 0.22 m/s)
-            max_omega: Maximum angular velocity (Burger: 2.84 rad/s)
+            v, omega: Vitesses désirées
+            max_v: Vitesse linéaire maximum (Burger : 0.22 m/s)
+            max_omega: Vitesse angulaire maximum (Burger : 2.84 rad/s)
             
         Returns:
             (v_clamped, omega_clamped)

@@ -46,9 +46,9 @@ class VelocityLimiter:
             
             # Déterminer le statut
             if abs(linear_x) < 0.001 and abs(angular_z) < 0.001:
-                reason = "Stop"
+                reason = "Arrêt"
             elif abs(original_linear - linear_x) > 0.001 or abs(original_angular - angular_z) > 0.001:
-                reason = "Speed Limited"
+                reason = "Vitesse Limitée"
             else:
                 reason = "OK"
             
@@ -93,7 +93,7 @@ class ROSBridge(Node):
         
         self._print_network_info()
         
-        self.get_logger().info("✅ [INIT] Bridge prêt à démarrer")
+        self.get_logger().info(" [INIT] Bridge prêt à démarrer")
     
     def _print_startup_banner(self):
         """Affiche la bannière de démarrage"""
@@ -103,7 +103,7 @@ class ROSBridge(Node):
 ╚══════════════════════════════════════════════════════════════╝
 """
         print(banner)
-        self.get_logger().info("🚀 [INIT] Démarrage du WebSocket Bridge")
+        self.get_logger().info(" [INIT] Démarrage du WebSocket Bridge")
     
     def _declare_and_get_parameters(self):
         """Déclare et récupère tous les paramètres ROS2"""
@@ -125,7 +125,7 @@ class ROSBridge(Node):
         self.max_angular_vel = self.get_parameter('max_angular_vel').value
         self.log_level = self.get_parameter('log_level').value
         
-        self.get_logger().info("⚙️  [INIT] Paramètres ROS2 chargés:")
+        self.get_logger().info("  [INIT] Paramètres ROS2 chargés:")
         self.get_logger().info(f"   ├─ robot_namespace: {self.robot_namespace}")
         self.get_logger().info(f"   ├─ ws_host: {self.ws_host}")
         self.get_logger().info(f"   ├─ ws_port: {self.ws_port}")
@@ -136,7 +136,7 @@ class ROSBridge(Node):
     
     def _setup_ros_interfaces(self):
         """Configure le publisher ROS2"""
-        self.get_logger().info("🔧 [INIT] Configuration des interfaces ROS2...")
+        self.get_logger().info(" [INIT] Configuration des interfaces ROS2...")
         
         # QoS Profile pour meilleure fiabilité
         qos_profile = QoSProfile(
@@ -151,17 +151,17 @@ class ROSBridge(Node):
             'cmd_vel',
             qos_profile
         )
-        self.get_logger().info(f"   └─ ✅ Publisher: /{self.robot_namespace}/cmd_vel")
+        self.get_logger().info(f"   └─  Publisher: /{self.robot_namespace}/cmd_vel")
     
     def _print_configuration(self):
         """Affiche la configuration détaillée"""
         self.get_logger().info("╔" + "═"*58 + "╗")
         self.get_logger().info("║" + " "*18 + "CONFIGURATION" + " "*27 + "║")
         self.get_logger().info("╠" + "═"*58 + "╣")
-        self.get_logger().info(f"║ 🤖 Robot: {self.robot_namespace:<44} ║")
-        self.get_logger().info(f"║ 🌐 WebSocket: {self.ws_host}:{self.ws_port:<34} ║")
-        self.get_logger().info(f"║ ⚡ Vitesse linéaire: [{self.min_linear_vel:>6.2f}, {self.max_linear_vel:>5.2f}] m/s" + " "*11 + "║")
-        self.get_logger().info(f"║ 🔄 Vitesse angulaire: ±{self.max_angular_vel:.2f} rad/s" + " "*21 + "║")
+        self.get_logger().info(f"║  Robot: {self.robot_namespace:<44} ║")
+        self.get_logger().info(f"║  WebSocket: {self.ws_host}:{self.ws_port:<34} ║")
+        self.get_logger().info(f"║  Vitesse linéaire: [{self.min_linear_vel:>6.2f}, {self.max_linear_vel:>5.2f}] m/s" + " "*11 + "║")
+        self.get_logger().info(f"║  Vitesse angulaire: ±{self.max_angular_vel:.2f} rad/s" + " "*21 + "║")
         self.get_logger().info("╚" + "═"*58 + "╝")
     
     def _print_network_info(self):
@@ -173,15 +173,15 @@ class ROSBridge(Node):
             self.get_logger().info("╔" + "═"*58 + "╗")
             self.get_logger().info("║" + " "*17 + "INFORMATIONS RÉSEAU" + " "*21 + "║")
             self.get_logger().info("╠" + "═"*58 + "╣")
-            self.get_logger().info(f"║ 🖥️  Hostname: {hostname:<42} ║")
-            self.get_logger().info(f"║ 🌐 IP locale: {local_ip:<41} ║")
-            self.get_logger().info(f"║ 🔌 Port WebSocket: {self.ws_port:<36} ║")
-            self.get_logger().info(f"║ 📡 URL: ws://{local_ip}:{self.ws_port:<31} ║")
+            self.get_logger().info(f"║   Hostname: {hostname:<42} ║")
+            self.get_logger().info(f"║  IP locale: {local_ip:<41} ║")
+            self.get_logger().info(f"║  Port WebSocket: {self.ws_port:<36} ║")
+            self.get_logger().info(f"║  URL: ws://{local_ip}:{self.ws_port:<31} ║")
             if self.ws_host == '0.0.0.0':
-                self.get_logger().info(f"║ ℹ️  Écoute sur toutes les interfaces" + " "*20 + "║")
+                self.get_logger().info(f"║   Écoute sur toutes les interfaces" + " "*20 + "║")
             self.get_logger().info("╚" + "═"*58 + "╝")
         except Exception as e:
-            self.get_logger().warn(f"⚠️  Impossible de récupérer les infos réseau: {e}")
+            self.get_logger().warn(f"  Impossible de récupérer les infos réseau: {e}")
     
     async def handle_websocket(self, websocket, path=None):
         """Gère une connexion WebSocket avec logging détaillé"""
@@ -196,14 +196,14 @@ class ROSBridge(Node):
         
         # Log détaillé de connexion
         self.get_logger().info("╔" + "═"*58 + "╗")
-        self.get_logger().info("║" + " "*16 + "🔌 NOUVELLE CONNEXION" + " "*21 + "║")
+        self.get_logger().info("║" + " "*16 + " NOUVELLE CONNEXION" + " "*21 + "║")
         self.get_logger().info("╠" + "═"*58 + "╣")
-        self.get_logger().info(f"║ 🌐 IP: {client_ip:<48} ║")
-        self.get_logger().info(f"║ 🔢 Port: {client_port:<46} ║")
-        self.get_logger().info(f"║ 🆔 ID: {client_id:<49} ║")
-        self.get_logger().info(f"║ 🕐 Heure: {connection_time.strftime('%H:%M:%S.%f')[:-3]:<43} ║")
-        self.get_logger().info(f"║ 👥 Total clients: {len(self.connected_clients):<37} ║")
-        self.get_logger().info(f"║ 📂 Path: {path_str:<47} ║")
+        self.get_logger().info(f"║  IP: {client_ip:<48} ║")
+        self.get_logger().info(f"║  Port: {client_port:<46} ║")
+        self.get_logger().info(f"║  ID: {client_id:<49} ║")
+        self.get_logger().info(f"║  Heure: {connection_time.strftime('%H:%M:%S.%f')[:-3]:<43} ║")
+        self.get_logger().info(f"║  Total clients: {len(self.connected_clients):<37} ║")
+        self.get_logger().info(f"║  Path: {path_str:<47} ║")
         self.get_logger().info("╚" + "═"*58 + "╝")
         
         try:
@@ -221,17 +221,17 @@ class ROSBridge(Node):
             
             welcome_json = json.dumps(welcome, indent=2)
             
-            self.get_logger().info(f"📤 [WS→{client_id}] Envoi message d'accueil")
-            self.get_logger().info(f"📦 Payload ({len(welcome_json)} octets):")
+            self.get_logger().info(f" [WS{client_id}] Envoi message d'accueil")
+            self.get_logger().info(f" Payload ({len(welcome_json)} octets):")
             for line in welcome_json.split('\n'):
                 self.get_logger().info(f"   {line}")
             
             await websocket.send(welcome_json)
-            self.get_logger().info(f"✅ [WS→{client_id}] Message d'accueil envoyé")
+            self.get_logger().info(f" [WS{client_id}] Message d'accueil envoyé")
             
             # Boucle de réception
             msg_count = 0
-            self.get_logger().info(f"👂 [WS←{client_id}] En attente de messages...")
+            self.get_logger().info(f" [WS{client_id}] En attente de messages...")
             
             async for message in websocket:
                 msg_count += 1
@@ -239,15 +239,15 @@ class ROSBridge(Node):
                 
                 # Log de réception détaillé
                 self.get_logger().info("┌" + "─"*58 + "┐")
-                self.get_logger().info(f"│ 📥 MESSAGE #{msg_count:<46} │")
+                self.get_logger().info(f"│  MESSAGE #{msg_count:<46} │")
                 self.get_logger().info("├" + "─"*58 + "┤")
-                self.get_logger().info(f"│ 🆔 Client: {client_id:<45} │")
-                self.get_logger().info(f"│ 🕐 Heure: {receive_time.strftime('%H:%M:%S.%f')[:-3]:<46} │")
-                self.get_logger().info(f"│ 📏 Taille: {len(message)} octets{' '*(44-len(str(len(message))))} │")
+                self.get_logger().info(f"│  Client: {client_id:<45} │")
+                self.get_logger().info(f"│  Heure: {receive_time.strftime('%H:%M:%S.%f')[:-3]:<46} │")
+                self.get_logger().info(f"│  Taille: {len(message)} octets{' '*(44-len(str(len(message))))} │")
                 self.get_logger().info("└" + "─"*58 + "┘")
                 
                 # Log du contenu brut
-                self.get_logger().info(f"📄 Contenu brut:")
+                self.get_logger().info(f" Contenu brut:")
                 if len(message) <= 500:
                     self.get_logger().info(f"   {message}")
                 else:
@@ -257,7 +257,7 @@ class ROSBridge(Node):
                     data = json.loads(message)
                     msg_type = data.get('type', 'unknown')
                     
-                    self.get_logger().info(f"📦 Message parsé:")
+                    self.get_logger().info(f" Message parsé:")
                     self.get_logger().info(f"   ├─ Type: {msg_type}")
                     
                     # Log du JSON complet
@@ -280,7 +280,7 @@ class ROSBridge(Node):
                         await self._process_ping(websocket, client_id, msg_count)
                     
                     else:
-                        self.get_logger().warn(f"❓ [WS←{client_id}] Type inconnu: {msg_type}")
+                        self.get_logger().warn(f" [WS{client_id}] Type inconnu: {msg_type}")
                         await websocket.send(json.dumps({
                             'type': 'error',
                             'reason': f'Unknown message type: {msg_type}',
@@ -288,7 +288,7 @@ class ROSBridge(Node):
                         }))
                 
                 except json.JSONDecodeError as e:
-                    self.get_logger().error(f"⚠️  [WS←{client_id}] ERREUR JSON:")
+                    self.get_logger().error(f"  [WS{client_id}] ERREUR JSON:")
                     self.get_logger().error(f"   ├─ Position: {e.pos}")
                     self.get_logger().error(f"   ├─ Ligne: {e.lineno}, Colonne: {e.colno}")
                     self.get_logger().error(f"   ├─ Message: {e.msg}")
@@ -301,7 +301,7 @@ class ROSBridge(Node):
                     }))
                 
                 except Exception as e:
-                    self.get_logger().error(f"💥 [WS←{client_id}] ERREUR TRAITEMENT:")
+                    self.get_logger().error(f" [WS{client_id}] ERREUR TRAITEMENT:")
                     self.get_logger().error(f"   ├─ Type: {type(e).__name__}")
                     self.get_logger().error(f"   ├─ Message: {e}")
                     self.get_logger().error(f"   └─ Traceback:")
@@ -313,17 +313,17 @@ class ROSBridge(Node):
             duration = (datetime.now() - connection_time).total_seconds()
             
             self.get_logger().info("╔" + "═"*58 + "╗")
-            self.get_logger().info("║" + " "*18 + "🔌 DÉCONNEXION" + " "*25 + "║")
+            self.get_logger().info("║" + " "*18 + " DÉCONNEXION" + " "*25 + "║")
             self.get_logger().info("╠" + "═"*58 + "╣")
-            self.get_logger().info(f"║ 🆔 Client: {client_id:<44} ║")
-            self.get_logger().info(f"║ 🔢 Code: {e.code:<47} ║")
-            self.get_logger().info(f"║ 📝 Raison: {str(e.reason)[:43]:<44} ║")
-            self.get_logger().info(f"║ 📊 Messages traités: {msg_count:<34} ║")
-            self.get_logger().info(f"║ ⏱️  Durée: {duration:.2f}s{' '*(43-len(f'{duration:.2f}'))} ║")
+            self.get_logger().info(f"║  Client: {client_id:<44} ║")
+            self.get_logger().info(f"║  Code: {e.code:<47} ║")
+            self.get_logger().info(f"║  Raison: {str(e.reason)[:43]:<44} ║")
+            self.get_logger().info(f"║  Messages traités: {msg_count:<34} ║")
+            self.get_logger().info(f"║   Durée: {duration:.2f}s{' '*(43-len(f'{duration:.2f}'))} ║")
             self.get_logger().info("╚" + "═"*58 + "╝")
         
         except Exception as e:
-            self.get_logger().error(f"💥 [WS] ERREUR CONNEXION ({client_id}):")
+            self.get_logger().error(f" [WS] ERREUR CONNEXION ({client_id}):")
             self.get_logger().error(f"   ├─ {type(e).__name__}: {e}")
             self.get_logger().error(f"   └─ Traceback:")
             for line in traceback.format_exc().split('\n'):
@@ -334,7 +334,7 @@ class ROSBridge(Node):
             if websocket in self.connected_clients:
                 self.connected_clients.remove(websocket)
             
-            self.get_logger().info(f"👋 [WS] Fin connexion {client_id}")
+            self.get_logger().info(f" [WS] Fin connexion {client_id}")
             self.get_logger().info(f"   └─ Clients restants: {len(self.connected_clients)}")
     
     async def _process_cmd_vel(self, websocket, data, client_id, msg_num):
@@ -345,7 +345,7 @@ class ROSBridge(Node):
         linear_x = data.get('linear_x', 0.0)
         angular_z = data.get('angular_z', 0.0)
         
-        self.get_logger().info(f"🎮 [CMD_VEL #{msg_num}] Commande reçue:")
+        self.get_logger().info(f" [CMD_VEL #{msg_num}] Commande reçue:")
         self.get_logger().info(f"   ├─ Source: {client_id}")
         self.get_logger().info(f"   ├─ linear_x:  {linear_x:>8.6f} m/s")
         self.get_logger().info(f"   └─ angular_z: {angular_z:>8.6f} rad/s")
@@ -361,7 +361,7 @@ class ROSBridge(Node):
         twist.linear.x = safe_linear
         twist.angular.z = safe_angular
         
-        self.get_logger().info(f"✅ [CMD_VEL #{msg_num}] Commande PUBLIÉE:")
+        self.get_logger().info(f" [CMD_VEL #{msg_num}] Commande PUBLIÉE:")
         self.get_logger().info(f"   ├─ Raison: {reason}")
         self.get_logger().info(f"   ├─ Publié linear:  {safe_linear:>8.6f} m/s")
         self.get_logger().info(f"   ├─ Publié angular: {safe_angular:>8.6f} rad/s")
@@ -372,7 +372,7 @@ class ROSBridge(Node):
         
         # Stats
         accept_rate = (self.commands_accepted / self.commands_received * 100) if self.commands_received > 0 else 0
-        self.get_logger().info(f"📊 [STATS] Reçues: {self.commands_received} | "
+        self.get_logger().info(f" [STATS] Reçues: {self.commands_received} | "
                              f"Acceptées: {self.commands_accepted} ({accept_rate:.1f}%)")
         
         # Confirmation au client
@@ -388,23 +388,23 @@ class ROSBridge(Node):
         await websocket.send(json.dumps(response))
         
         process_time = (datetime.now() - process_start).total_seconds() * 1000
-        self.get_logger().info(f"⏱️  [CMD_VEL #{msg_num}] Traité en {process_time:.2f}ms")
+        self.get_logger().info(f"  [CMD_VEL #{msg_num}] Traité en {process_time:.2f}ms")
     
     async def _process_emergency_stop(self, websocket, client_id, msg_num):
         """Traite un arrêt d'urgence"""
         self.get_logger().warn("╔" + "═"*58 + "╗")
-        self.get_logger().warn("║" + " "*16 + "🚨 ARRÊT D'URGENCE" + " "*23 + "║")
+        self.get_logger().warn("║" + " "*16 + " ARRÊT D'URGENCE" + " "*23 + "║")
         self.get_logger().warn("╠" + "═"*58 + "╣")
-        self.get_logger().warn(f"║ 🆔 Demandé par: {client_id:<40} ║")
-        self.get_logger().warn(f"║ 📨 Message #{msg_num:<44} ║")
-        self.get_logger().warn(f"║ 🕐 Heure: {datetime.now().strftime('%H:%M:%S.%f')[:-3]:<46} ║")
+        self.get_logger().warn(f"║  Demandé par: {client_id:<40} ║")
+        self.get_logger().warn(f"║  Message #{msg_num:<44} ║")
+        self.get_logger().warn(f"║  Heure: {datetime.now().strftime('%H:%M:%S.%f')[:-3]:<46} ║")
         self.get_logger().warn("╚" + "═"*58 + "╝")
         
         # Arrêt immédiat
         twist = Twist()
         self.cmd_vel_pub.publish(twist)
         
-        self.get_logger().warn(f"🛑 [EMERGENCY] Robot ARRÊTÉ sur /{self.robot_namespace}/cmd_vel")
+        self.get_logger().warn(f" [EMERGENCY] Robot ARRÊTÉ sur /{self.robot_namespace}/cmd_vel")
         
         # Confirmation
         response = {
@@ -414,11 +414,11 @@ class ROSBridge(Node):
         }
         
         await websocket.send(json.dumps(response))
-        self.get_logger().info(f"✅ [EMERGENCY] Confirmation envoyée à {client_id}")
+        self.get_logger().info(f" [EMERGENCY] Confirmation envoyée à {client_id}")
     
     async def _process_get_status(self, websocket, client_id, msg_num):
         """Traite une demande de status"""
-        self.get_logger().info(f"📊 [STATUS] Demande #{msg_num} de {client_id}")
+        self.get_logger().info(f" [STATUS] Demande #{msg_num} de {client_id}")
         
         uptime = (self.get_clock().now() - self.start_time).nanoseconds / 1e9
         
@@ -433,16 +433,16 @@ class ROSBridge(Node):
         }
         
         status_json = json.dumps(status, indent=2)
-        self.get_logger().info(f"📤 [STATUS] Envoi:")
+        self.get_logger().info(f" [STATUS] Envoi:")
         for line in status_json.split('\n')[:10]:
             self.get_logger().info(f"   {line}")
         
         await websocket.send(status_json)
-        self.get_logger().info(f"✅ [STATUS] Status envoyé à {client_id}")
+        self.get_logger().info(f" [STATUS] Status envoyé à {client_id}")
     
     async def _process_ping(self, websocket, client_id, msg_num):
         """Traite un ping"""
-        self.get_logger().info(f"🏓 [PING] Reçu de {client_id}")
+        self.get_logger().info(f" [PING] Reçu de {client_id}")
         
         response = {
             'type': 'pong',
@@ -451,13 +451,13 @@ class ROSBridge(Node):
         }
         
         await websocket.send(json.dumps(response))
-        self.get_logger().info(f"✅ [PONG] Réponse envoyée à {client_id}")
+        self.get_logger().info(f" [PONG] Réponse envoyée à {client_id}")
     
     async def broadcast_status(self):
         """Broadcast périodique du status"""
         broadcast_count = 0
         
-        self.get_logger().info("📡 [BROADCAST] Service de broadcast démarré")
+        self.get_logger().info(" [BROADCAST] Service de broadcast démarré")
         
         while self.running:
             await asyncio.sleep(5.0)
@@ -480,7 +480,7 @@ class ROSBridge(Node):
                 }
                 
                 if broadcast_count % 12 == 0:
-                    self.get_logger().info(f"📡 [BROADCAST #{broadcast_count}] Status envoyé à {len(self.connected_clients)} client(s)")
+                    self.get_logger().info(f" [BROADCAST #{broadcast_count}] Status envoyé à {len(self.connected_clients)} client(s)")
                     self.get_logger().info(f"   ├─ Uptime: {uptime:.1f}s")
                     self.get_logger().info(f"   ├─ Commandes: {self.commands_received} reçues, {self.commands_accepted} acceptées")
                     self.get_logger().info(f"   └─ Status: {self.last_status}")
@@ -488,22 +488,22 @@ class ROSBridge(Node):
                 try:
                     websockets.broadcast(self.connected_clients, json.dumps(status_msg))
                 except Exception as e:
-                    self.get_logger().error(f"⚠️  [BROADCAST] Erreur: {e}")
+                    self.get_logger().error(f"  [BROADCAST] Erreur: {e}")
     
     def run_websocket_server(self):
         """Lance le serveur WebSocket"""
         self.get_logger().info("╔" + "═"*58 + "╗")
-        self.get_logger().info("║" + " "*12 + "🚀 DÉMARRAGE SERVEUR WEBSOCKET" + " "*16 + "║")
+        self.get_logger().info("║" + " "*12 + " DÉMARRAGE SERVEUR WEBSOCKET" + " "*16 + "║")
         self.get_logger().info("╚" + "═"*58 + "╝")
         
         async def main():
             try:
-                self.get_logger().info(f"🔧 [WS-SERVER] Configuration:")
+                self.get_logger().info(f" [WS-SERVER] Configuration:")
                 self.get_logger().info(f"   ├─ Host: {self.ws_host}")
                 self.get_logger().info(f"   ├─ Port: {self.ws_port}")
                 self.get_logger().info(f"   └─ Namespace: {self.robot_namespace}")
                 
-                self.get_logger().info(f"🎬 [WS-SERVER] Lancement du serveur...")
+                self.get_logger().info(f" [WS-SERVER] Lancement du serveur...")
                 
                 async with websockets.serve(
                     self.handle_websocket,
@@ -514,31 +514,31 @@ class ROSBridge(Node):
                     compression=None
                 ):
                     self.get_logger().info("╔" + "═"*58 + "╗")
-                    self.get_logger().info("║" + " "*12 + "✅ SERVEUR WEBSOCKET ACTIF" + " "*19 + "║")
+                    self.get_logger().info("║" + " "*12 + " SERVEUR WEBSOCKET ACTIF" + " "*19 + "║")
                     self.get_logger().info("╠" + "═"*58 + "╣")
                     
                     try:
                         hostname = socket.gethostname()
                         local_ip = socket.gethostbyname(hostname)
                         
-                        self.get_logger().info(f"║ 🌐 URLs de connexion:" + " "*35 + "║")
+                        self.get_logger().info(f"║  URLs de connexion:" + " "*35 + "║")
                         self.get_logger().info(f"║    • Local:   ws://localhost:{self.ws_port}{' '*(27-len(str(self.ws_port)))} ║")
                         self.get_logger().info(f"║    • LAN:     ws://{local_ip}:{self.ws_port}{' '*(27-len(local_ip)-len(str(self.ws_port)))} ║")
                     except:
-                        self.get_logger().info(f"║ 🌐 URL: ws://{self.ws_host}:{self.ws_port}{' '*(36-len(self.ws_host)-len(str(self.ws_port)))} ║")
+                        self.get_logger().info(f"║  URL: ws://{self.ws_host}:{self.ws_port}{' '*(36-len(self.ws_host)-len(str(self.ws_port)))} ║")
                     
                     self.get_logger().info("╠" + "═"*58 + "╣")
-                    self.get_logger().info(f"║ 🎯 En attente de connexions..." + " "*26 + "║")
-                    self.get_logger().info(f"║ 🤖 Robot: {self.robot_namespace:<44} ║")
-                    self.get_logger().info(f"║ 📊 Prêt à recevoir des commandes cmd_vel" + " "*15 + "║")
+                    self.get_logger().info(f"║  En attente de connexions..." + " "*26 + "║")
+                    self.get_logger().info(f"║  Robot: {self.robot_namespace:<44} ║")
+                    self.get_logger().info(f"║  Prêt à recevoir des commandes cmd_vel" + " "*15 + "║")
                     self.get_logger().info("╚" + "═"*58 + "╝")
                     
                     # Broadcast task
                     broadcast_task = asyncio.create_task(self.broadcast_status())
                     
-                    self.get_logger().info("✅ [WS-SERVER] Serveur opérationnel!")
+                    self.get_logger().info(" [WS-SERVER] Serveur opérationnel!")
                     self.get_logger().info("")
-                    self.get_logger().info("📋 COMMANDES DISPONIBLES:")
+                    self.get_logger().info(" COMMANDES DISPONIBLES:")
                     self.get_logger().info("   • cmd_vel        - Envoyer une commande de vitesse")
                     self.get_logger().info("   • emergency_stop - Arrêt d'urgence")
                     self.get_logger().info("   • get_status     - Obtenir le statut")
@@ -549,13 +549,13 @@ class ROSBridge(Node):
             
             except OSError as e:
                 self.get_logger().error("╔" + "═"*58 + "╗")
-                self.get_logger().error("║" + " "*14 + "❌ ERREUR DÉMARRAGE SERVEUR" + " "*17 + "║")
+                self.get_logger().error("║" + " "*14 + " ERREUR DÉMARRAGE SERVEUR" + " "*17 + "║")
                 self.get_logger().error("╠" + "═"*58 + "╣")
                 
                 if e.errno == 98 or e.errno == 48:
-                    self.get_logger().error(f"║ ⚠️  Port {self.ws_port} déjà utilisé!" + " "*(36-len(str(self.ws_port))) + "║")
+                    self.get_logger().error(f"║   Port {self.ws_port} déjà utilisé!" + " "*(36-len(str(self.ws_port))) + "║")
                     self.get_logger().error("║" + " "*58 + "║")
-                    self.get_logger().error("║ 💡 Solutions:" + " "*44 + "║")
+                    self.get_logger().error("║  Solutions:" + " "*44 + "║")
                     self.get_logger().error(f"║    lsof -i :{self.ws_port}{' '*(44-len(str(self.ws_port)))} ║")
                 else:
                     self.get_logger().error(f"║ Erreur: {str(e)[:50]:<50} ║")
@@ -564,7 +564,7 @@ class ROSBridge(Node):
             
             except Exception as e:
                 self.get_logger().error("╔" + "═"*58 + "╗")
-                self.get_logger().error("║" + " "*18 + "💥 ERREUR SERVEUR" + " "*23 + "║")
+                self.get_logger().error("║" + " "*18 + " ERREUR SERVEUR" + " "*23 + "║")
                 self.get_logger().error("╠" + "═"*58 + "╣")
                 self.get_logger().error(f"║ Type: {type(e).__name__:<49} ║")
                 self.get_logger().error(f"║ Message: {str(e)[:48]:<48} ║")
@@ -575,7 +575,7 @@ class ROSBridge(Node):
     def shutdown(self):
         """Arrêt propre du bridge"""
         self.get_logger().info("╔" + "═"*58 + "╗")
-        self.get_logger().info("║" + " "*20 + "🛑 ARRÊT DU BRIDGE" + " "*21 + "║")
+        self.get_logger().info("║" + " "*20 + " ARRÊT DU BRIDGE" + " "*21 + "║")
         self.get_logger().info("╚" + "═"*58 + "╝")
         
         self.running = False
@@ -583,32 +583,32 @@ class ROSBridge(Node):
         # Arrêt du robot
         twist = Twist()
         self.cmd_vel_pub.publish(twist)
-        self.get_logger().info("   ├─ ✅ Robot arrêté")
+        self.get_logger().info("   ├─  Robot arrêté")
         
         # Stats finales
         uptime = (self.get_clock().now() - self.start_time).nanoseconds / 1e9
         
         self.get_logger().info("╔" + "═"*58 + "╗")
-        self.get_logger().info("║" + " "*20 + "📊 STATISTIQUES FINALES" + " "*15 + "║")
+        self.get_logger().info("║" + " "*20 + " STATISTIQUES FINALES" + " "*15 + "║")
         self.get_logger().info("╠" + "═"*58 + "╣")
-        self.get_logger().info(f"║ ⏱️  Uptime: {uptime:.2f}s{' '*(47-len(f'{uptime:.2f}'))} ║")
-        self.get_logger().info(f"║ 📥 Commandes reçues: {self.commands_received:<33} ║")
-        self.get_logger().info(f"║ ✅ Commandes acceptées: {self.commands_accepted:<30} ║")
+        self.get_logger().info(f"║   Uptime: {uptime:.2f}s{' '*(47-len(f'{uptime:.2f}'))} ║")
+        self.get_logger().info(f"║  Commandes reçues: {self.commands_received:<33} ║")
+        self.get_logger().info(f"║  Commandes acceptées: {self.commands_accepted:<30} ║")
         
         if self.commands_received > 0:
             accept_rate = (self.commands_accepted / self.commands_received * 100)
-            self.get_logger().info(f"║ 📊 Taux d'acceptation: {accept_rate:.1f}%{' '*(30-len(f'{accept_rate:.1f}'))} ║")
+            self.get_logger().info(f"║  Taux d'acceptation: {accept_rate:.1f}%{' '*(30-len(f'{accept_rate:.1f}'))} ║")
         
         self.get_logger().info("╚" + "═"*58 + "╝")
         
         self.destroy_node()
-        self.get_logger().info("✅ [SHUTDOWN] Bridge arrêté proprement")
+        self.get_logger().info(" [SHUTDOWN] Bridge arrêté proprement")
 
 
 def main(args=None):
     """Point d'entrée principal"""
     print("\n" + "╔" + "═"*58 + "╗")
-    print("║" + " "*8 + "🚀 TURTLEBOT WEBSOCKET BRIDGE ROS2 🚀" + " "*13 + "║")
+    print("║" + " "*8 + " TURTLEBOT WEBSOCKET BRIDGE ROS2 " + " "*13 + "║")
     print("║" + " "*12 + "Version 2.1 - Bridge Simple & Propre" + " "*9 + "║")
     print("╚" + "═"*58 + "╝\n")
     
@@ -619,27 +619,27 @@ def main(args=None):
     try:
         bridge = ROSBridge()
         
-        print("🔧 Démarrage du serveur WebSocket...\n")
+        print(" Démarrage du serveur WebSocket...\n")
         ws_thread = Thread(target=bridge.run_websocket_server, daemon=True)
         ws_thread.start()
         
-        print("✅ Bridge initialisé")
-        print("⏳ Attendez le message '✅ SERVEUR WEBSOCKET ACTIF'...\n")
+        print(" Bridge initialisé")
+        print(" Attendez le message ' SERVEUR WEBSOCKET ACTIF'...\n")
         
         import time
         time.sleep(2)
         
-        print("🔄 Démarrage du spin ROS2...\n")
+        print(" Démarrage du spin ROS2...\n")
         rclpy.spin(bridge)
     
     except KeyboardInterrupt:
         print("\n╔" + "═"*58 + "╗")
-        print("║" + " "*12 + "🛑 ARRÊT DEMANDÉ PAR L'UTILISATEUR" + " "*13 + "║")
+        print("║" + " "*12 + " ARRÊT DEMANDÉ PAR L'UTILISATEUR" + " "*13 + "║")
         print("╚" + "═"*58 + "╝")
     
     except Exception as e:
         print("\n╔" + "═"*58 + "╗")
-        print("║" + " "*20 + "💥 ERREUR FATALE" + " "*23 + "║")
+        print("║" + " "*20 + " ERREUR FATALE" + " "*23 + "║")
         print("╠" + "═"*58 + "╣")
         print(f"║ {type(e).__name__}: {str(e)[:45]:<45} ║")
         print("╚" + "═"*58 + "╝\n")
@@ -657,7 +657,7 @@ def main(args=None):
         except:
             pass
         
-        print("\n✅ Programme terminé\n")
+        print("\n Programme terminé\n")
 
 
 if __name__ == '__main__':

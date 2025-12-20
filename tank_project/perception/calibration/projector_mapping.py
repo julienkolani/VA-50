@@ -1,5 +1,5 @@
 """
-Projector Mapping - Transformation Monde → Projecteur
+Projector Mapping - Transformation Monde -> Projecteur
 
 Gère la conversion des coordonnées monde (mètres)
 vers pixels projecteur pour affichage Pygame.
@@ -13,7 +13,7 @@ from typing import Tuple
 
 class ProjectorMapping:
     """
-    Mapping Monde → Pixels Projecteur.
+    Mapping Monde -> Pixels Projecteur.
     """
     
     def __init__(self,
@@ -59,12 +59,12 @@ class ProjectorMapping:
         scale_y = self.draw_h / height_m
         self.scale = min(scale_x, scale_y)
         
-        print("[PROJ_MAP] Arena set: {:.2f}x{:.2f}m, "
-              "scale: {:.1f} px/m".format(width_m, height_m, self.scale))
+        print("[PROJ_MAP] Arène définie : {:.2f}x{:.2f}m, "
+              "échelle : {:.1f} px/m".format(width_m, height_m, self.scale))
         
     def world_to_projector(self, x_m: float, y_m: float) -> Tuple[int, int]:
         """
-        Convertit coordonnées monde → pixels projecteur.
+        Convertit coordonnées monde -> pixels projecteur.
         
         Args:
             x_m, y_m: Position en mètres
@@ -83,7 +83,7 @@ class ProjectorMapping:
     
     def projector_to_world(self, px: int, py: int) -> Tuple[float, float]:
         """
-        Convertit pixels projecteur → coordonnées monde.
+        Convertit pixels projecteur -> coordonnées monde.
         
         Args:
             px, py: Position en pixels
@@ -101,7 +101,7 @@ class ProjectorMapping:
     
     def scale_length(self, length_m: float) -> int:
         """
-        Convertit longueur mètres → pixels.
+        Convertit longueur mètres -> pixels.
         
         Args:
             length_m: Longueur en mètres

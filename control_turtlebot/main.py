@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-TurtleBot Controller - Main Entry Point
+TurtleBot Controller - Point d'Entrée Principal
 
-Professional Pygame-based interface for manual robot control via WebSocket.
+Interface professionnelle basée sur Pygame pour le contrôle manuel du robot via WebSocket.
 """
 
 import sys
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """Main entry point."""
+    """Point d'entrée principal."""
     try:
         # Add current directory to path for imports
         sys.path.insert(0, str(Path(__file__).parent))
@@ -31,39 +31,39 @@ def main():
         logger.info(" TurtleBot Controller")
         logger.info("=" * 60)
         
-        # Load all configurations
-        logger.info("Loading configuration...")
+        # Charge toutes les configurations
+        logger.info("Chargement de la configuration...")
         config_loader = ConfigLoader()
         
         try:
             all_config = config_loader.load_all()
-            logger.info(f"Loaded {len(all_config)} configuration files")
+            logger.info(f"Chargé {len(all_config)} fichiers de configuration")
         except Exception as e:
-            logger.error(f"Failed to load configuration: {e}")
-            logger.error("Please check config/ directory contains valid YAML files")
+            logger.error(f"Échec du chargement de la configuration : {e}")
+            logger.error("Veuillez vérifier que le répertoire config/ contient des fichiers YAML valides")
             return 1
         
         # Import and launch UI
         from integrated_ui import IntegratedUI
         
-        logger.info("Configuration loaded successfully!")
+        logger.info("Configuration chargée avec succès !")
         logger.info("")
-        logger.info("Configuration summary:")
+        logger.info("Résumé de la configuration :")
         for name, cfg in all_config.items():
-            logger.info("  - %s.yaml: %d top-level keys", name, len(cfg))
+            logger.info("  - %s.yaml: %d clés de premier niveau", name, len(cfg))
         
         logger.info("")
-        logger.info("Launching Integrated UI...")
+        logger.info("Lancement de l'interface intégrée...")
         
-        # Get UI configuration
+        # Obtient la configuration UI
         ui_cfg = all_config.get('ui', {})
         network_cfg = all_config.get('network', {})
         
-        # Build WebSocket URI from config (network.yaml has 'uri' directly)
+        # Construit l'URI WebSocket depuis la config (network.yaml a 'uri' directement)
         ws_cfg = network_cfg.get('websocket', {})
         ws_uri = ws_cfg.get('uri', 'ws://localhost:8765')
         
-        # Create and launch UI
+        # Crée et lance l'interface
         ui = IntegratedUI(
             width=ui_cfg.get('default_width', 1400),
             height=ui_cfg.get('default_height', 900),
@@ -71,15 +71,15 @@ def main():
         )
         ui.run()
         
-        logger.info("UI closed normally")
+        logger.info("Interface fermée normalement")
         return 0
         
     except KeyboardInterrupt:
-        logger.info("Interrupted by user (Ctrl+C)")
+        logger.info("Interrompu par l'utilisateur (Ctrl+C)")
         return 0
         
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        logger.error(f"Erreur fatale : {e}")
         import traceback
         traceback.print_exc()
         return 1

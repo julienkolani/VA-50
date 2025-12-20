@@ -1,16 +1,16 @@
 """
-ArUco Detector - ArUco Marker Detection & Pose Estimation
+Détecteur ArUco - Détection de Marqueurs & Estimation de Pose
 
-Detects ArUco markers in camera images:
-- Projected markers (ID 0-3): arena corners for calibration
-- Robot markers (ID 4, 5): robot tracking
+Détecte les marqueurs ArUco dans les images caméra :
+- Marqueurs projetés (ID 0-3) : coins de l'arène pour l'étalonnage
+- Marqueurs robots (ID 4, 5) : suivi des robots
 
-Provides:
-- Marker center positions (pixels)
-- Marker orientations (radians)
-- Corner positions for scale estimation
+Fournit :
+- Positions centrales des marqueurs (pixels)
+- Orientations des marqueurs (radians)
+- Positions des coins pour l'estimation de l'échelle
 
-Logs: [ARUCO] Detected N markers: [IDs]
+Logs : [ARUCO] Détecté N marqueurs : [IDs]
 """
 
 import cv2
@@ -20,20 +20,20 @@ from typing import List, Dict, Tuple, Optional
 
 class ArucoDetector:
     """
-    ArUco marker detection and pose estimation.
+    Détection de marqueurs ArUco et estimation de pose.
     
-    Uses cv2.aruco for marker detection.
+    Utilise cv2.aruco pour la détection de marqueurs.
     """
     
     def __init__(self, 
                  dictionary_type=cv2.aruco.DICT_4X4_50,
                  marker_size_m: float = 0.10):
         """
-        Initialize ArUco detector.
+        Initialise le détecteur ArUco.
         
         Args:
-            dictionary_type: ArUco dictionary (default: 4x4, 50 markers)
-            marker_size_m: Physical marker size in meters (for scale estimation)
+            dictionary_type: Dictionnaire ArUco (défaut : 4x4, 50 marqueurs)
+            marker_size_m: Taille physique du marqueur en mètres (pour estimation échelle)
         """
         self.dictionary = cv2.aruco.getPredefinedDictionary(dictionary_type)
         self.parameters = cv2.aruco.DetectorParameters()
@@ -43,30 +43,30 @@ class ArucoDetector:
         
     def detect(self, image: np.ndarray) -> Dict[int, Dict]:
         """
-        Detect ArUco markers in image.
+        Détecte les marqueurs ArUco dans l'image.
         
         Args:
-            image: Input image (BGR or grayscale)
+            image: Image d'entrée (BGR ou niveaux de gris)
             
         Returns:
             dict: {
                 marker_id: {
-                    'center': (u, v),  # pixel coordinates
+                    'center': (u, v),  # coordonnées pixel
                     'corners': [(u1,v1), (u2,v2), (u3,v3), (u4,v4)],
                     'orientation': theta  # radians
                 }
             }
             
         Logs:
-            [ARUCO] Detected N markers: [IDs]
+            [ARUCO] Détecté N marqueurs : [IDs]
         """
-        # Convert to grayscale if needed
+        # Convertit en niveaux de gris si nécessaire
         if len(image.shape) == 3:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         else:
             gray = image
         
-        # Detect markers
+        # Détecte les marqueurs
         corners, ids, rejected = self.detector.detectMarkers(gray)
         
         results = {}
@@ -75,11 +75,11 @@ class ArucoDetector:
             for i, marker_id in enumerate(ids.flatten()):
                 marker_corners = corners[i][0]  # Shape: (4, 2)
                 
-                # Calculate center
+                # Calcule le centre
                 center = marker_corners.mean(axis=0)
                 
-                # Calculate orientation (from corner 0 to corner 1)
-                # Corner order: top-left, top-right, bottom-right, bottom-left
+                # Calcule l'orientation (du coin 0 au coin 1)
+                # Ordre des coins : haut-gauche, haut-droite, bas-droite, bas-gauche
                 dx = marker_corners[1][0] - marker_corners[0][0]
                 dy = marker_corners[1][1] - marker_corners[0][1]
                 orientation = np.arctan2(dy, dx)
@@ -90,24 +90,24 @@ class ArucoDetector:
                     'orientation': orientation
                 }
             
-            print("[ARUCO] Detected {} markers: {}".format(len(ids), ids.flatten().tolist()))
+            print("[ARUCO] Détecté {} marqueurs : {}".format(len(ids), ids.flatten().tolist()))
         
         return results
     
     def estimate_marker_size_av(self, marker_corners, H_C2AV):
         """
-        Estimate marker size in Arena Virtual units.
+        Estime la taille du marqueur en unités de l'Arène Virtuelle.
         
-        Used during calibration to compute metric scale.
+        Utilisé pendant l'étalonnage pour calculer l'échelle métrique.
         
         Args:
-            marker_corners: List of 4 corner positions in pixels
-            H_C2AV: Homography camera → arena virtual
+            marker_corners: Liste des 4 positions de coins en pixels
+            H_C2AV: Homographie caméra -> arène virtuelle
             
         Returns:
-            float: Marker side length in AV units
+            float: Longueur du côté du marqueur en unités AV
         """
-        # Transform corners to AV space
+        # Transforme les coins vers l'espace AV
         corners_av = []
         for u, v in marker_corners:
             p_cam = np.array([u, v, 1.0])
@@ -115,7 +115,7 @@ class ArucoDetector:
             p_av = p_av[:2] / p_av[2]  # Normalize
             corners_av.append(p_av)
         
-        # Calculate average side length
+        # Calcule la longueur moyenne des côtés
         corners_av = np.array(corners_av)
         side_lengths = []
         for i in range(4):
@@ -129,14 +129,14 @@ class ArucoDetector:
     
     def draw_detections(self, image: np.ndarray, detections: Dict) -> np.ndarray:
         """
-        Draw detected markers on image (for debugging).
+        Dessine les marqueurs détectés sur l'image (pour débogage).
         
         Args:
-            image: Input image
-            detections: Detection results from detect()
+            image: Image d'entrée
+            detections: Résultats de détection de detect()
             
         Returns:
-            Image with drawn markers
+            Image avec marqueurs dessinés
         """
         img_draw = image.copy()
         
@@ -144,14 +144,14 @@ class ArucoDetector:
             center = data['center']
             corners = data['corners']
             
-            # Draw corners
+            # Dessine les coins
             corners_array = np.array(corners, dtype=np.int32)
             cv2.polylines(img_draw, [corners_array], True, (0, 255, 0), 2)
             
-            # Draw center
+            # Dessine le centre
             cv2.circle(img_draw, (int(center[0]), int(center[1])), 5, (0, 0, 255), -1)
             
-            # Draw ID
+            # Dessine l'ID
             cv2.putText(img_draw, f"ID:{marker_id}", 
                        (int(center[0]), int(center[1]) - 10),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
