@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Détecter la résolution du projecteur
+Détecter et Configurer la Résolution du Projecteur
 
-Ce script aide à détecter la résolution réelle du projecteur.
-Il affiche les moniteurs disponibles et leurs résolutions.
+Ce script :
+1. Liste les écrans connectés.
+2. Vous permet d'identifier le projecteur.
+3. Met à jour automatiquement config/projector.yaml.
 
 Usage :
     python3 scripts/detect_projector_resolution.py
@@ -11,123 +13,91 @@ Usage :
 
 import pygame
 import sys
+import yaml
+from pathlib import Path
+
+def load_projector_config():
+    config_path = Path(__file__).parent.parent / 'config' / 'projector.yaml'
+    if config_path.exists():
+        with open(config_path) as f:
+            return yaml.safe_load(f), config_path
+    return None, config_path
+
+def save_projector_config(config, path):
+    with open(path, 'w') as f:
+        yaml.dump(config, f, default_flow_style=False)
+    print(f"✅ Configuration sauvegardée dans {path}")
 
 def main():
     print("=" * 60)
-    print("  DÉTECTEUR DE RÉSOLUTION DU PROJECTEUR")
+    print("  CONFIGURATION AUTOMATIQUE DU PROJECTEUR")
     print("=" * 60)
-    print()
     
     pygame.init()
     
-    # Obtenir toutes les tailles d'affichage disponibles
-    # Note: Sur certains systèmes Linux multi-écrans, get_desktop_sizes
-    # peut retourner la taille combinée ou des tailles individuelles selon le driver.
+    # 1. Détection des écrans
     try:
         displays = pygame.display.get_desktop_sizes()
     except AttributeError:
-        # Fallback pour vieilles versions de pygame
+        # Fallback Pygame ancien
         info = pygame.display.Info()
         displays = [(info.current_w, info.current_h)]
-        print("Note: Pygame ancien détecté, affichage de l'écran principal uniquement.")
+        print("Note: Pygame ancien, détection limitée.")
+
+    print(f"\n🖥️  Écrans détectés : {len(displays)}\n")
     
-    print(f"Détecté {len(displays)} affichage(s) signalés par l'OS :\n")
+    for i, (w, h) in enumerate(displays):
+        print(f"  [{i}] {w} x {h} px  {'<-- Probablement le PC' if i==0 else '<-- Probablement le Projecteur'}")
+
+    print("\nQuelle est l'ID de votre projecteur ?")
     
-    for i, (width, height) in enumerate(displays):
-        display_name = "Moniteur Principal" if i == 0 else f"Affichage Secondaire {i}"
-        print(f"  Affichage {i} : {width} x {height} px ({display_name})")
-    
-    print()
-    print("=" * 60)
-    print()
-    
-    # Test : Créer une fenêtre et montrer sa taille réelle
-    print("Création d'une fenêtre de test...")
-    print("1. La fenêtre s'ouvrira sur votre affichage principal")
-    print("2. Faites-la glisser vers le projecteur")
-    print("3. Appuyez sur F11 pour passer en plein écran")
-    print("4. Vérifiez si les infos affichées correspondent à la réalité")
-    print()
-    
-    # Créer fenêtre redimensionnable
-    screen = pygame.display.set_mode((800, 600), pygame.RESIZABLE)
-    pygame.display.set_caption("Test Résolution Projecteur - Glissez vers projecteur, F11")
-    
-    font_large = pygame.font.SysFont("Arial", 48)
-    font_small = pygame.font.SysFont("Arial", 32)
-    
-    running = True
-    is_fullscreen = False
-    
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_F11:
-                    # Basculer plein écran
-                    if is_fullscreen:
-                        screen = pygame.display.set_mode((800, 600), pygame.RESIZABLE)
-                        is_fullscreen = False
-                    else:
-                        screen = pygame.display.set_mode((0, 0), pygame.NOFRAME | pygame.FULLSCREEN)
-                        is_fullscreen = True
-                elif event.key == pygame.K_ESCAPE:
-                    if is_fullscreen:
-                        screen = pygame.display.set_mode((800, 600), pygame.RESIZABLE)
-                        is_fullscreen = False
-                    else:
-                        running = False
-                elif event.key == pygame.K_q:
-                    running = False
+    try:
+        choice = input(f"Entrez le numéro (0-{len(displays)-1}) ou 'q' pour quitter : ")
+        if choice.lower() == 'q':
+            return
         
-        # Effacer écran
-        screen.fill((30, 30, 50))
+        idx = int(choice)
+        if idx < 0 or idx >= len(displays):
+            print("❌ ID invalide.")
+            return
+            
+        target_w, target_h = displays[idx]
+        print(f"\n👌 Vous avez choisi : {target_w} x {target_h} px")
         
-        # Obtenir taille fenêtre actuelle
-        width, height = screen.get_size()
+        # 2. Mise à jour de la config
+        config, path = load_projector_config()
+        if config is None:
+            print("❌ Erreur : config/projector.yaml introuvable.")
+            return
+            
+        print(f"\nAncienne configuration : {config['projector']['width']} x {config['projector']['height']}")
         
-        # Afficher infos
-        mode_text = "MODE PLEIN ÉCRAN" if is_fullscreen else "MODE FENÊTRÉ"
-        mode_surface = font_large.render(mode_text, True, (255, 255, 100))
-        mode_rect = mode_surface.get_rect(center=(width // 2, height // 3))
-        screen.blit(mode_surface, mode_rect)
+        # Mise à jour resolution
+        config['projector']['width'] = target_w
+        config['projector']['height'] = target_h
         
-        # Afficher résolution
-        res_text = f"Résolution Actuelle : {width} x {height} px"
-        res_surface = font_large.render(res_text, True, (255, 255, 255))
-        res_rect = res_surface.get_rect(center=(width // 2, height // 2))
-        screen.blit(res_surface, res_rect)
+        # Mise à jour offset (si 2 écrans et projecteur est le 2eme)
+        # On suppose que l'offset X est la largeur du premier écran si on choisit le 2eme
+        if len(displays) > 1 and idx == 1:
+            offset_x = displays[0][0]
+            print(f"Mise à jour de l'offset X à {offset_x} (largeur écran principal)")
+            config['display']['monitor_offset_x'] = offset_x
         
-        instructions = [
-            "F11 - Basculer Plein Écran",
-            "ESC - Quitter Plein Écran / Quitter",
-            "Q - Quitter"
-        ]
-        
-        y_offset = height // 2 + 80
-        for instruction in instructions:
-            inst_surface = font_small.render(instruction, True, (200, 200, 200))
-            inst_rect = inst_surface.get_rect(center=(width // 2, y_offset))
-            screen.blit(inst_surface, inst_rect)
-            y_offset += 40
-        
-        # Note en bas
-        if is_fullscreen:
-            note = "NOTEZ CETTE RÉSOLUTION POUR VOTRE CONFIG !"
-            note_color = (100, 255, 100)
+        # Confirmation
+        confirm = input("\nSauvegarder cette configuration ? (o/n) : ")
+        if confirm.lower() == 'o':
+            save_projector_config(config, path)
+            print("\n✨ SUCCÈS ! La résolution est corrigée.")
+            print("Relancez maintenant 'python3 scripts/run_calibration.py'")
         else:
-            note = "Glissez la fenêtre vers le projecteur, puis F11"
-            note_color = (255, 200, 100)
-        
-        note_surface = font_small.render(note, True, note_color)
-        note_rect = note_surface.get_rect(center=(width // 2, height - 50))
-        screen.blit(note_surface, note_rect)
-        
-        pygame.display.flip()
-    
-    pygame.quit()
-    print("Fin du test.")
+            print("Annulé.")
+
+    except ValueError:
+        print("Entrée invalide.")
+    except Exception as e:
+        print(f"Erreur : {e}")
+    finally:
+        pygame.quit()
 
 if __name__ == "__main__":
     main()

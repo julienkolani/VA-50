@@ -48,9 +48,10 @@ def load_config():
     config_dir = Path(__file__).parent.parent / 'config'
     
     configs = {}
-    for config_file in ['arena', 'camera', 'game', 'ia', 'robot']:
-        with open(config_dir / '{}.yaml'.format(config_file)) as f:
-            configs[config_file] = yaml.safe_load(f)
+    for config_file in ['arena', 'camera', 'game', 'ia', 'robot', 'projector']:
+        if (config_dir / '{}.yaml'.format(config_file)).exists():
+            with open(config_dir / '{}.yaml'.format(config_file)) as f:
+                configs[config_file] = yaml.safe_load(f)
     
     return configs
 
@@ -195,14 +196,21 @@ def main():
     )
     ros_bridge.connect()
     
-    # 6. Visualisation
-    display_config = configs['arena'].get('display', {})
+    # 6. Visualization
+    # Prioritise projector.yaml if available, else fallback to arena.yaml
+    if 'projector' in configs and 'projector' in configs['projector']:
+        proj_conf = configs['projector']['projector']
+        disp_conf = configs['projector'].get('display', {})
+    else:
+        proj_conf = configs['arena']['projector']
+        disp_conf = configs['arena'].get('display', {})
+
     renderer = PygameRenderer(
-        width=configs['arena']['projector']['width'],
-        height=configs['arena']['projector']['height'],
-        margin=configs['arena']['projector']['margin_px'],
-        fullscreen=display_config.get('fullscreen', False),
-        display_index=display_config.get('display_index', 0)
+        width=proj_conf['width'],
+        height=proj_conf['height'],
+        margin=proj_conf.get('margin_px', 50),
+        fullscreen=disp_conf.get('fullscreen', False),
+        display_index=disp_conf.get('display_index', 0)
     )
     renderer.set_arena_dimensions(
         configs['arena']['arena']['width_m'],
