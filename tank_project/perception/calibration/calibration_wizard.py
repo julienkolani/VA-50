@@ -1,9 +1,9 @@
 """
-Assistant de Calibration - VERSION CORRIGÉE (AFFICHAGE MARQUEURS)
+Assistant de Calibration - VERSION CORRIGÉE (AFFICHAGE MARQUEURS + DISTORSION)
 
 Correctif :
 - La boucle d'attente redessine les marqueurs ArUco au lieu de les effacer.
-- Gestion fluide des événements Pygame.
+- Utilise la correction de distorsion optique (cv2.undistort) pour améliorer la précision aux bords.
 """
 
 import cv2
@@ -31,6 +31,13 @@ class CalibrationWizard:
         self.aruco = ArucoDetector()
         self.transform_mgr = TransformManager()
         
+        # Récupération des paramètres intrinsèques pour la correction optique
+        self.K, self.D = self.camera.get_intrinsics_matrix()
+        if self.K is not None:
+             print("[CALIB] Correction de distorsion ACTIVE")
+        else:
+             print("[CALIB] ATTENTION: Pas de correction de distorsion (Intrinsics non trouvés)")
+
         self.projector = ProjectorDisplay(
             width=projector_width,
             height=projector_height,
@@ -47,6 +54,13 @@ class CalibrationWizard:
         self.H_C2W = None
         self.static_obstacles = []
     
+    def _get_undistorted_frame(self):
+        """Récupère une frame et applique la correction de distorsion si possible."""
+        color, _ = self.camera.get_frames()
+        if self.K is not None and self.D is not None and color is not None:
+            color = cv2.undistort(color, self.K, self.D)
+        return color
+
     def _wait_for_user_validation(self, message: str = "Appuyez sur ESPACE...", draw_callback=None):
         """
         Boucle d'attente générique qui supporte un redessin continu (draw_callback).
@@ -133,17 +147,15 @@ class CalibrationWizard:
         print("[CALIB] Étape 2/4 : Calibration géométrique")
         print("[CALIB] Affichage des 4 marqueurs ArUco (IDs 0-3)...")
         
-        # --- CORRECTION ICI ---
-        # On passe la fonction d'affichage en callback pour qu'elle soit rappelée en boucle
-        # Cela empêche l'écran de devenir noir ou d'être écrasé
+        # On passe la fonction d'affichage en callback
         self._wait_for_user_validation(
             "Vérifiez que la caméra voit les 4 coins, puis appuyez sur ESPACE",
             draw_callback=lambda: self.projector.show_corner_markers(marker_size_px=200)
         )
         
-        # Capture
-        print("[CALIB] Capture de l'image...")
-        color, _ = self.camera.get_frames()
+        # Capture avec UNDISTORT
+        print("[CALIB] Capture de l'image (Undistorted)...")
+        color = self._get_undistorted_frame()
         detections = self.aruco.detect(color)
         
         corner_ids = [0, 1, 2, 3]
@@ -152,7 +164,6 @@ class CalibrationWizard:
         if len(detected_corners) != 4:
             print(f"[CALIB] ERREUR : Seulement {len(detected_corners)}/4 coins détectés !")
             print(f"[CALIB] IDs vus : {list(detected_corners.keys())}")
-            # On pourrait relancer ici, mais pour l'instant on lève une erreur
             raise ValueError("Échec détection des 4 coins projetés")
             
         # Calcul Homographie
@@ -179,10 +190,10 @@ class CalibrationWizard:
     def _step_metric_calibration(self, H_C2AV: np.ndarray) -> float:
         print("[CALIB] Étape 3/4 : Calibration métrique")
         
-        # Ici on veut juste du texte, pas de marqueurs projetés
         self._wait_for_user_validation("Placez le ROBOT (ID 4 ou 5) au centre et appuyez sur ESPACE")
         
-        color, _ = self.camera.get_frames()
+        # Capture avec UNDISTORT
+        color = self._get_undistorted_frame()
         detections = self.aruco.detect(color)
         
         marker_data = detections.get(4) or detections.get(5)
@@ -217,7 +228,6 @@ class CalibrationWizard:
     def _step_obstacle_mapping(self) -> List:
         print("[CALIB] Étape 4/4 : Cartographie")
         
-        # Pour les obstacles, on veut un écran blanc
         self._wait_for_user_validation(
             "Placez les obstacles, puis ESPACE (Écran deviendra BLANC)",
             draw_callback=lambda: self.projector.show_white_screen()

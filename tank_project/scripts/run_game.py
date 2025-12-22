@@ -17,6 +17,7 @@ import time
 import yaml
 import pygame
 import numpy as np
+import cv2  # Import nécessaire pour undistort
 from pathlib import Path
 
 # Add project root to path
@@ -143,6 +144,14 @@ def main():
     )
     camera.start()
     
+    # --- CORRECTION DISTORSION ---
+    # Récupération des paramètres intrinsèques
+    K, D = camera.get_intrinsics_matrix()
+    if K is not None:
+        print("[MAIN] Paramètres optiques chargés (suppression distorsion activée)")
+    else:
+        print("[MAIN] ATTENTION: Impossible de charger les paramètres optiques")
+    
     aruco = ArucoDetector()
     kalman_ai = KalmanFilter()
     kalman_human = KalmanFilter()
@@ -268,6 +277,10 @@ def main():
             color_frame, _ = camera.get_frames()
             if color_frame is None:
                 continue
+            
+            # --- APPLICATION CORRECTION DISTORSION ---
+            if K is not None and D is not None:
+                color_frame = cv2.undistort(color_frame, K, D)
                 
             detections = aruco.detect(color_frame)
             
@@ -304,14 +317,17 @@ def main():
             game_state = game_engine.tick(world, ai_decision, human_input)
             
             # Sync renderer state with game engine
-            if game_state['state'] != renderer.match_state:
-                if game_state['state'] == 'WAITING':
+            # FIX: Utiliser 'status' car c'est la clé renvoyée par GameEngine (cf. game_engine.py ligne 131)
+            current_status = game_state.get('status', 'READY') # Fallback safe
+            
+            if current_status != renderer.match_state:
+                if current_status == 'WAITING':
                     renderer.match_state = renderer.STATE_WAITING
-                elif game_state['state'] == 'PLAYING':
+                elif current_status == 'PLAYING':
                      # engine handles countdown implicitly, renderer handles visual countdown
                     if renderer.match_state != renderer.STATE_PLAYING:
                         renderer.start_match()
-                elif game_state['state'] == 'FINISHED':
+                elif current_status == 'FINISHED':
                     renderer.end_match(game_state.get('winner', 'NONE'))
             
             # Gestion du start game via renderer visual only
@@ -380,7 +396,7 @@ def main():
     except KeyboardInterrupt:
         print("[MAIN] Arrêt demandé par utilisateur.")
     except Exception as e:
-        print(f"[MAIN] Erreur critique: {e}")
+        print(f("[MAIN] Erreur critique: {e}"))
         import traceback
         traceback.print_exc()
     finally:

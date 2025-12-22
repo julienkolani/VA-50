@@ -15,6 +15,7 @@ import os  # Ajouté pour SDL hack
 import yaml
 import pygame
 import numpy as np
+import cv2 # Import nécessaire pour undistort
 from pathlib import Path
 
 # Ajout du chemin racine pour les imports
@@ -78,6 +79,15 @@ def main():
     cam_cfg = configs['camera'].get('realsense', {})
     camera = RealSenseStream(width=848, height=480, fps=60) 
     camera.start()
+    
+    # --- CORRECTION DISTORSION ---
+    # Récupération des paramètres intrinsèques
+    K, D = camera.get_intrinsics_matrix()
+    if K is not None:
+        print("[CHECK] Correction de distorsion activée")
+    else:
+        print("[CHECK] Pas de correction de distorsion (Intrinsics non trouvés)")
+
     aruco = ArucoDetector()
     
     transform_mgr = TransformManager()
@@ -142,6 +152,11 @@ def main():
 
             # Vision
             color_frame, _ = camera.get_frames()
+            
+            # --- APPLICATION UNDISTORT ---
+            if K is not None and D is not None and color_frame is not None:
+                color_frame = cv2.undistort(color_frame, K, D)
+                
             detections = aruco.detect(color_frame) if color_frame is not None else {}
 
             # Rendu Fond
@@ -191,7 +206,8 @@ def main():
 
             # UI Text
             mode_txt = "COSTMAP (GONFLÉE)" if show_inflation else "OBSTACLES BRUTS"
-            ui = font.render(f"[D] Vue: {mode_txt}", True, (0, 255, 0))
+            dist_txt = " + DISTORTION FIX" if K is not None else ""
+            ui = font.render(f"[D] Vue: {mode_txt}{dist_txt}", True, (0, 255, 0))
             screen.blit(ui, (10, 10))
 
             pygame.display.flip()

@@ -80,6 +80,32 @@ class RealSenseStream:
             print("[REALSENSE] Échec du démarrage : {}".format(e))
             raise
     
+    def get_intrinsics_matrix(self):
+        """
+        Retourne la matrice de caméra (K) et les coefficients de distorsion (D).
+        """
+        if self.pipeline:
+            try:
+                profile = self.pipeline.get_active_profile()
+                color_stream = profile.get_stream(rs.stream.color)
+                intr = color_stream.as_video_stream_profile().get_intrinsics()
+                
+                # Matrice K (3x3)
+                K = np.array([
+                    [intr.fx, 0, intr.ppx],
+                    [0, intr.fy, intr.ppy],
+                    [0, 0, 1]
+                ])
+                
+                # Coefficients D (Distortion)
+                D = np.array(intr.coeffs)
+                
+                return K, D
+            except Exception as e:
+                print(f"[REALSENSE] Erreur récupération intrinsics : {e}")
+                return None, None
+        return None, None
+
     def stop(self):
         """Arrête le pipeline caméra."""
         if self.pipeline:
