@@ -39,7 +39,13 @@ def main():
     with open(config_dir / 'camera.yaml') as f:
         camera_config = yaml.safe_load(f)
     
-    with open(config_dir / 'projector.yaml') as f:
+    projector_config_path = config_dir / 'projector.yaml'
+    if not projector_config_path.exists():
+        print("[CALIB_RUNNER] ERREUR : 'config/projector.yaml' introuvable !")
+        print("[CALIB_RUNNER] Veuillez d'abord lancer : python3 scripts/detect_projector_resolution.py")
+        sys.exit(1)
+        
+    with open(projector_config_path) as f:
         projector_config = yaml.safe_load(f)
     
     # Initialize camera with config

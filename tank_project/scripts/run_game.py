@@ -1,23 +1,15 @@
 #!/usr/bin/env python3
 """
-Boucle de Jeu Principale
+Main Game Script - Tank Arena
 
-Exécute le jeu de l'arène de tanks à 30 FPS :
-1. Vision et suivi (détection ArUco, filtrage Kalman)
-2. Mise à jour du monde (grille d'occupation, poses des robots)
-3. Moteur de jeu (tirs, impacts, chronomètres)
-4. Décision IA (arbre de comportement, planification de chemin)
-5. Contrôle (suivi de trajectoire, commandes ROS)
-6. Visualisation (rendu Pygame)
+Integrates all components:
+- Perception (Camera, ArUco, Kalman)
+- Core (Game Engine, World Model, IA)
+- Visualization (Pygame Projector)
+- Control (ROS Bridge)
 
-Utilisation :
+Usage:
     python3 run_game.py
-    
-Prérequis :
-    - Calibration terminée (config/arena.yaml existe)
-    - Pont ROS en cours d'exécution
-    - Caméra RealSense connectée
-    - Projecteur configuré
 """
 
 import sys
@@ -33,7 +25,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from perception.camera.realsense_stream import RealSenseStream
 from perception.camera.aruco_detector import ArucoDetector
 from perception.camera.kalman_filter import KalmanFilter
-from perception.camera.homography import apply_homography_single
 from core.world.world_model import WorldModel
 from core.world.coordinate_frames import TransformManager
 from core.game.game_engine import GameEngine
@@ -59,46 +50,39 @@ def load_config():
 def setup_transform_manager(configs):
     """
     Configure la transformation de coordonnées à partir des données de calibration.
-    
-    Returns:
-        TransformManager avec H_C2W défini, ou None si non calibré
     """
     transform_mgr = TransformManager()
     
-    # Charge H_C2W depuis la calibration si disponible
-    transform_data = configs['arena'].get('transform', {})
-    scale = transform_data.get('scale_m_per_av', 1.0)
-    h_c2w = transform_data.get('H_C2W')
-    
-    if h_c2w is not None:
-        transform_mgr.H_C2W = np.array(h_c2w)
-        print("[MAIN] H_C2W chargé depuis la calibration")
+    if 'transform' in configs['arena'] and 'H_C2W' in configs['arena']['transform']:
+        transform_mgr.H_C2W = np.array(configs['arena']['transform']['H_C2W'])
+        print("[MAIN] Matrice d'homographie chargée avec succès.")
     else:
-        # Repli : utilise une échelle simple (suppose caméra alignée avec l'arène)
-        transform_mgr.set_av_to_world_scale(scale)
-        print("[MAIN] ATTENTION : Pas de H_C2W trouvé, utilisation de l'échelle de repli")
+        print("[MAIN] ATTENTION : Pas de calibration trouvée. Utilisez 'run_calibration.py' d'abord.")
+        # Fallback
+        if 'scale' in configs['arena'].get('transform', {}):
+             transform_mgr.set_av_to_world_scale(configs['arena']['transform']['scale'])
     
     return transform_mgr
 
 
 def camera_to_world(detection_center, transform_mgr, fallback_scale=1.0):
     """
-    Transforme une détection ArUco des pixels caméra vers mètres monde.
+    Transform ArUco detection from camera pixels to world meters.
     
     Args:
-        detection_center: (u, v) coordonnées pixel
-        transform_mgr: Instance TransformManager
-        fallback_scale: Échelle à utiliser si pas d'homographie
+        detection_center: (u, v) pixel coordinates
+        transform_mgr: TransformManager instance
+        fallback_scale: Scale to use if no homography
         
     Returns:
-        (x, y) en mètres
+        (x, y) in meters
     """
     u, v = detection_center
     
     if transform_mgr.H_C2W is not None:
         return transform_mgr.camera_to_world(u, v)
     else:
-        # Repli : échelle simple depuis le centre
+        # Fallback: simple scaling from center
         x = u * fallback_scale / 1000.0
         y = v * fallback_scale / 1000.0
         return (x, y)
@@ -139,23 +123,23 @@ def get_robot_pose_in_world(detection_data, transform_mgr, fallback_scale=1.0):
 
 
 def main():
-    print("[MAIN] ========== Jeu d'Arène de Tanks ==========")
+    print("[MAIN] ========== Tank Arena Game ==========")
     
-    # Charge la configuration
-    print("[MAIN] Chargement de la configuration...")
+    # 1. Configuration
     configs = load_config()
     
-    # Configure les transformations de coordonnées
+    # Init subsystems
     transform_mgr = setup_transform_manager(configs)
     
-    # Initialise les sous-systèmes
-    print("[MAIN] Initialisation des sous-systèmes...")
-    
-    # 1. Vision
+    fallback_scale = 1.0
+    if 'transform' in configs['arena'] and 'scale' in configs['arena']['transform']:
+        fallback_scale = configs['arena']['transform']['scale']
+
+    # 1. Perception
     camera = RealSenseStream(
-        width=configs['camera']['realsense']['width'],
-        height=configs['camera']['realsense']['height'],
-        fps=configs['camera']['realsense']['fps']
+        width=configs['camera']['realsense'].get('width', 848),
+        height=configs['camera']['realsense'].get('height', 480),
+        fps=configs['camera']['realsense'].get('fps', 60)
     )
     camera.start()
     
@@ -163,7 +147,7 @@ def main():
     kalman_ai = KalmanFilter()
     kalman_human = KalmanFilter()
     
-    # 2. Monde - avec config robot
+    # 2. World - avec config robot
     robot_config = configs['arena'].get('robot', {})
     world = WorldModel(
         arena_width_m=configs['arena']['arena']['width_m'],
@@ -184,17 +168,13 @@ def main():
     ai_strategy = AIStrategy(configs['ia'])
     ai_strategy.set_planner(world.grid)
     
-    # 5. Contrôle - récupère les limites de vitesse depuis le bon chemin de config
-    velocity_limits = configs['robot'].get('velocity_limits', {})
-    max_linear_vel = velocity_limits.get('max_linear_mps', 0.22)
-    max_angular_vel = velocity_limits.get('max_angular_radps', 2.84)
-    
+    # 5. Control (ROS Bridge)
     controller = TrajectoryFollower(configs['robot'].get('control', {}))
     ros_bridge = ROSBridgeClient(
         host=configs['robot']['ros_bridge']['host'],
         port=configs['robot']['ros_bridge']['port']
     )
-    ros_bridge.connect()
+    # ros_bridge.connect() # Uncomment when robot is ready
     
     # 6. Visualization
     # Prioritise projector.yaml if available, else fallback to arena.yaml
@@ -217,80 +197,42 @@ def main():
         configs['arena']['arena']['height_m']
     )
     
-    print("[MAIN] Tous les sous-systèmes initialisés")
-    print("[MAIN] Démarrage de la boucle de jeu à 30 FPS...")
-    
-    # Initialise les Entrées (Joystick/Clavier)
+    # Variables de contrôle
     joystick = None
     if pygame.joystick.get_count() > 0:
         joystick = pygame.joystick.Joystick(0)
         joystick.init()
-        print("[MAIN] Joystick détecté : {}".format(joystick.get_name()))
+        print(f"[MAIN] Joystick détecté: {joystick.get_name()}")
     
-    # Boucle de jeu
-    dt = 1.0 / configs['game']['match']['tick_rate_fps']
-    running = True
-    
-    # Échelle de repli depuis la config
-    fallback_scale = configs['arena'].get('transform', {}).get('scale_m_per_av', 1.0)
-    
-    # État initial du jeu - utilisé pour vérifier si on joue avant l'appel à game_engine.tick()
-    game_state = {'status': 'ready'}
-    tick_counter = 0
-    
-    print("[LOG] === BOUCLE DE JEU DÉMARRÉE ===")
-    print(f"[LOG] État initial game_state : {game_state}")
-    print(f"[LOG] État Renderer : {renderer.match_state}")
-    
+    # --- GAME LOOP ---
     try:
+        clock = pygame.time.Clock()
+        running = True
+        
+        # État initial du jeu
+        game_state = {'status': 'ready'}
+        tick_counter = 0
+
         while running:
-            tick_start = time.time()
             tick_counter += 1
             
-            # --- GESTION DES ENTRÉES ---
-            human_input = {
-                'v': 0.0,
-                'omega': 0.0,
-                'fire_request': False,
-                'start_game': False
-            }
-            
-            # Traite les événements Pygame
+            # 0. Events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-                    print("[LOG] Événement QUIT reçu")
-                elif event.type == pygame.VIDEORESIZE:
-                    # Gère le redimensionnement de la fenêtre
-                    renderer.handle_resize(event.w, event.h)
-                elif event.type == pygame.KEYDOWN:
-                    print(f"[LOG] KEYDOWN : {pygame.key.name(event.key)}")
-                    if event.key == pygame.K_ESCAPE:
-                        if renderer.fullscreen:
-                            renderer.toggle_fullscreen()
-                        else:
-                            running = False
-                    elif event.key == pygame.K_F11:
-                        renderer.toggle_fullscreen()
-                    elif event.key == pygame.K_SPACE:
-                        human_input['fire_request'] = True
-                        if renderer.match_state == renderer.STATE_WAITING:
-                            human_input['start_game'] = True
-                            print("[LOG] ESPACE pressé -> start_game = True")
-                    elif event.key == pygame.K_RETURN:
-                        human_input['start_game'] = True
-                        print("[LOG] ENTRÉE pressé -> start_game = True")
-                    elif event.key == pygame.K_d:
-                        renderer.show_debug_path = not renderer.show_debug_path
-                        print(f"[LOG] Chemin de débogue : {'ON' if renderer.show_debug_path else 'OFF'}")
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    # Gérer ESC ici aussi si le renderer ne le capture pas
+                    running = False
+                
+                # Le renderer gère ses propres events (ex: toggle debug 'D')
+                renderer.handle_keypress(event)
             
-            # Synchronise l'état du renderer avec le démarrage du jeu
-            if human_input['start_game']:
-                print(f"[LOG] start_game=True, renderer.match_state={renderer.match_state}")
-                if renderer.match_state == renderer.STATE_WAITING:
-                    renderer.start_match(countdown_seconds=3.0)
-                    print("[LOG] >>> COMPTE À REBOURS DU MATCH DÉMARRÉ <<<")
-                         
+            # Input Humain (Manette ou Clavier)
+            human_input = {'v': 0.0, 'omega': 0.0, 'fire_request': False, 'start_game': False}
+            
+            max_linear_vel = configs['robot']['velocity_limits']['max_linear_mps']
+            max_angular_vel = configs['robot']['velocity_limits']['max_angular_radps']
+            
             # Joystick Input (PS4/Xbox)
             if joystick:
                 v = -joystick.get_axis(1) * max_linear_vel
@@ -306,7 +248,7 @@ def main():
                 if joystick.get_button(9):
                     human_input['start_game'] = True
 
-            # Repli Clavier pour mouvement (Flèches directionnelles)
+            # Keyboard fallback for movement (Arrow keys)
             keys = pygame.key.get_pressed()
             if keys[pygame.K_UP]:
                 human_input['v'] = max_linear_vel
@@ -316,6 +258,10 @@ def main():
                 human_input['omega'] = max_angular_vel
             if keys[pygame.K_RIGHT]:
                 human_input['omega'] = -max_angular_vel
+            if keys[pygame.K_SPACE]:
+                human_input['fire_request'] = True
+            if keys[pygame.K_RETURN]:
+                human_input['start_game'] = True
 
             
             # 1. Vision
@@ -350,123 +296,99 @@ def main():
                 filtered_pose = kalman_human.get_pose()
                 world.update_robot_pose(5, filtered_pose)
             
-            # 3. Mise à jour occupation monde
+            # 3. Update world occupancy
             world.update_occupancy()
             
-            # 4. Tick Jeu EN PREMIER - pour avoir l'état actuel du jeu
+            # 4. Game tick FIRST - to get current game status
             ai_decision = {'state': 'IDLE', 'fire_request': False, 'has_los': False, 'target_position': None}
             game_state = game_engine.tick(world, ai_decision, human_input)
             
-            # Log state changes
-            if tick_counter % 30 == 0:  # Every second
-                print(f"[LOG] Tick {tick_counter}: game_state.status={game_state.get('status')}, renderer={renderer.match_state}")
-                print(f"[LOG]   Robot4: {world.get_robot_pose(4)}, Robot5: {world.get_robot_pose(5)}")
+            # Sync renderer state with game engine
+            if game_state['state'] != renderer.match_state:
+                if game_state['state'] == 'WAITING':
+                    renderer.match_state = renderer.STATE_WAITING
+                elif game_state['state'] == 'PLAYING':
+                     # engine handles countdown implicitly, renderer handles visual countdown
+                    if renderer.match_state != renderer.STATE_PLAYING:
+                        renderer.start_match()
+                elif game_state['state'] == 'FINISHED':
+                    renderer.end_match(game_state.get('winner', 'NONE'))
             
-            # 5. Décision IA (seulement si le jeu est en cours)
-            if game_state.get('status', 'ready') == 'playing':
-                if tick_counter % 30 == 0:
-                    print("[LOG] >>> JEU EN COURS - L'IA DÉCIDE <<<")
-                
-                # Construit le contexte IA
+            # Gestion du start game via renderer visual only
+            if human_input['start_game']:
+                 game_engine.start_match(duration_s=180) 
+            
+            # 5. Stratégie IA (si jeu en cours)
+            if renderer.match_state == renderer.STATE_PLAYING:
+                # Construit le contexte pour l'IA
                 ai_context = world.get_state_dict()
                 ai_context['ai_pose'] = world.get_robot_pose(4)
-                ai_context['human_pose'] = world.get_robot_pose(5)
-                ai_context['raycast_sys'] = game_engine.raycast
-                ai_context['game_time'] = time.time()
+                ai_context['human_pose'] = world.get_robot_pose(5) # Target
+                ai_context['raycast_sys'] = game_engine.raycast # Pour LOS
                 
                 ai_decision = ai_strategy.decide(ai_context)
                 
-                if tick_counter % 30 == 0:
-                    print(f"[LOG]   Décision IA : state={ai_decision.get('state')}, target={ai_decision.get('target_position')}")
-                    print(f"[LOG]   Longueur chemin IA : {len(ai_strategy.current_path)}")
-            
-            # 6. Contrôle (seulement si le jeu est en cours)
-            if game_state.get('status', 'ready') == 'playing':
+                # Mise à jour debug renderer
+                renderer.set_ai_path(ai_decision.get('path', []))
                 
-                # --- CAS 1 : DÉPLACEMENT (On a un chemin) ---
+                # 6. Contrôle Robot (ROS)
+                
+                # CAS 1: DEPLACEMENT
                 if ai_decision.get('target_position'):
+                    # Calculer via contrôleur de trajectoire
+                     # Note: ici on simplifie, idéalement on suit le path complet
                     path = ai_strategy.current_path
                     if path:
-                        v_ai, omega_ai = controller.compute_control(world.get_robot_pose(4), path)
-                        ros_bridge.send_velocity_command(4, v_ai, omega_ai)
-                        renderer.set_ai_path(path)
-                        
-                        if tick_counter % 30 == 0:
-                            print(f"[LOG]   Envoi cmd : v={v_ai:.3f}, omega={omega_ai:.3f}")
+                        v_cmd, omega_cmd = controller.compute_control(world.get_robot_pose(4), path)
+                        ros_bridge.send_velocity_command(4, v_cmd, omega_cmd)
                     else:
                         ros_bridge.send_velocity_command(4, 0, 0)
-                        if tick_counter % 30 == 0:
-                            print("[LOG]   Pas de chemin - envoi STOP")
-
-                # --- CAS 2 : TIR (Mode Tourelle / Aiming) ---
+                    
+                # CAS 2: TIR (Rotation sur place)
                 elif ai_decision.get('fire_request'):
-                    # Le robot s'arrête (v=0) mais TOURNE pour s'aligner
-                    
-                    # 1. Où est l'ennemi ?
-                    # target_orientation contient la position (x,y) de l'ennemi quand on veut tirer
-                    enemy_pos = ai_decision.get('target_orientation') # (x, y) de l'ennemi
-                    
+                    # Tourner vers la cible
+                    enemy_pos = ai_decision.get('target_orientation')
                     if enemy_pos:
-                        # 2. Calcul de l'angle vers l'ennemi
-                        ai_pose = world.get_robot_pose(4) # (x, y, theta)
-                        dx = enemy_pos[0] - ai_pose[0]
-                        dy = enemy_pos[1] - ai_pose[1]
-                        desired_theta = np.arctan2(dy, dx)
-                        
-                        # 3. Calcul de l'erreur d'angle (Normalisée entre -PI et PI)
-                        error_theta = desired_theta - ai_pose[2]
-                        while error_theta > np.pi: error_theta -= 2 * np.pi
-                        while error_theta < -np.pi: error_theta += 2 * np.pi
-                        
-                        # 4. Commande Proportionnelle (P-Controller)
-                        # Kp = 2.0 (Gain : plus c'est haut, plus il tourne vite)
-                        # On clipe pour ne pas dépasser la vitesse max
-                        omega_cmd = np.clip(2.0 * error_theta, -max_angular_vel, max_angular_vel)
-                        
-                        # Zone morte : Si on est aligné à 5° près, on arrête de bouger pour être stable
-                        if abs(error_theta) < 0.08: # ~5 degrés
-                            omega_cmd = 0.0
-                            
-                        ros_bridge.send_velocity_command(4, 0.0, omega_cmd)
-                        
-                        if tick_counter % 30 == 0:
-                            print(f"[CTRL] VISÉE : Err={error_theta:.2f} rad -> Cmd={omega_cmd:.2f}")
-                    else:
-                        ros_bridge.send_velocity_command(4, 0, 0)
-
-                # --- CAS 3 : ATTENTE ---
+                         ai_pose = world.get_robot_pose(4)
+                         dx = enemy_pos[0] - ai_pose[0]
+                         dy = enemy_pos[1] - ai_pose[1]
+                         desired_theta = np.arctan2(dy, dx)
+                         
+                         error_theta = desired_theta - ai_pose[2]
+                         # Normalisation angle
+                         while error_theta > np.pi: error_theta -= 2*np.pi
+                         while error_theta < -np.pi: error_theta += 2*np.pi
+                         
+                         omega_cmd = np.clip(2.0 * error_theta, -max_angular_vel, max_angular_vel)
+                         if abs(error_theta) < 0.08: omega_cmd = 0.0
+                         
+                         ros_bridge.send_velocity_command(4, 0.0, omega_cmd)
+                    
+                    # Demande de tir au ROS (si aligné ?)
+                    # ros_bridge.send_fire_command()
+                
                 else:
+                    # Stop si rien à faire
                     ros_bridge.send_velocity_command(4, 0, 0)
-                    if tick_counter % 30 == 0:
-                        print("[LOG]   Pas de cible - envoi STOP")
-                     
-                # Human Control (for RC mode)
-                if human_input['v'] != 0 or human_input['omega'] != 0:
-                    ros_bridge.send_velocity_command(5, human_input['v'], human_input['omega'])
-            else:
-                # Pas en jeu - s'assure que les robots sont stoppés
-                ros_bridge.send_velocity_command(4, 0, 0)
-                ros_bridge.send_velocity_command(5, 0, 0)
 
-            
-            # 7. Rendu
+            # 7. Rendu Final
             renderer.render_frame(world.get_state_dict(), game_state)
             
-            # Maintien du taux de rafraîchissement
-            elapsed = time.time() - tick_start
-            if elapsed < dt:
-                time.sleep(dt - elapsed)
-                
+            # Limite FPS
+            clock.tick(30)
+            
     except KeyboardInterrupt:
-        print("\n[MAIN] Arrêt en cours...")
-        
+        print("[MAIN] Arrêt demandé par utilisateur.")
+    except Exception as e:
+        print(f"[MAIN] Erreur critique: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
-        # Nettoyage
+        print("[MAIN] Fermeture...")
         camera.stop()
         ros_bridge.disconnect()
         renderer.cleanup()
-        print("[MAIN] Au revoir !")
-
+        pygame.quit()
 
 if __name__ == '__main__':
     main()
