@@ -144,6 +144,9 @@ def main():
     )
     camera.start()
     
+    # Attente pour l'initialisation du pipeline (Recommandé)
+    time.sleep(1.0)
+    
     # --- CORRECTION DISTORSION ---
     # Récupération des paramètres intrinsèques
     K, D = camera.get_intrinsics_matrix()

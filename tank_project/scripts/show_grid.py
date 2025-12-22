@@ -80,6 +80,10 @@ def main():
     camera = RealSenseStream(width=848, height=480, fps=60) 
     camera.start()
     
+    # Attente pipeline (Safety)
+    import time
+    time.sleep(1.0)
+    
     # --- CORRECTION DISTORSION ---
     # Récupération des paramètres intrinsèques
     K, D = camera.get_intrinsics_matrix()

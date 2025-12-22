@@ -57,6 +57,10 @@ def main():
     )
     camera.start()
     
+    # Wait for pipeline to warm up (Safety)
+    import time
+    time.sleep(1.0)
+    
     # Run wizard with projector config
     proj = projector_config['projector']
     disp = projector_config['display']
