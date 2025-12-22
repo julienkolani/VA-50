@@ -70,11 +70,18 @@ class ProjectorDisplay:
         pygame.init()
         
         # 2. Configure les drapeaux de fenêtre selon paramètres
+        # CORRECTION : On utilise NOFRAME par défaut pour le borderless, plus stable que FULLSCREEN
         flags = pygame.DOUBLEBUF
         if self.borderless:
             flags |= pygame.NOFRAME
+        else:
+            flags |= pygame.RESIZABLE
         
         self.screen = pygame.display.set_mode((self.width, self.height), flags)
+        
+        # Force le remplissage noir immédiat pour voir la taille réelle
+        self.screen.fill((0,0,0))
+        pygame.display.flip()
         
         # 3. IMMERSION - Masque curseur si configuré
         if self.hide_cursor:
@@ -184,9 +191,10 @@ class ProjectorDisplay:
         self.clear(bg_color)
         
         # Ajustement taille police selon longueur
-        font_size = 48
-        if len(message) > 30:
-            font_size = 36
+        # 72 est souvent trop gros pour du 1024px de large avec une longue phrase
+        font_size = 48 
+        if len(message) > 20: font_size = 36
+        if len(message) > 40: font_size = 24
             
         font = pygame.font.Font(None, font_size)
         text = font.render(message, True, color)
