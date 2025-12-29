@@ -1,69 +1,55 @@
 """
-Suiveur de Trajectoire - Contrôleur Pure Pursuit Géométrique
+Suiveur de Trajectoire - Contrôleur Pure Pursuit Optimisé
 
 Implémente le suivi de trajectoire par courbure géométrique :
 - Sélection du point lookahead sur le chemin
-- Transformation monde → repère robot
+- Transformation monde → repère robot  
 - Calcul de courbure : κ = 2*y_r / L_d²
 - Commande angulaire : ω = v * κ
+- Alignement sur LOOKAHEAD (pas sur goal final)
 
 Prend un chemin (liste de waypoints) et la pose actuelle, sort (v, ω).
 """
 
+import math
 import numpy as np
-from typing import Tuple, List, Optional
+from typing import Tuple, List
 
 
 class TrajectoryFollower:
     """
     Contrôleur de suivi de trajectoire pour la navigation par points.
     
-    Utilise l'algorithme Pure Pursuit pour un suivi fluide.
+    Utilise l'algorithme Pure Pursuit avec alignement sur lookahead local.
     """
     
     def __init__(self, config):
-        # État interne pour hystérésis
+        # État interne pour hystérésis d'alignement
         self._in_alignment_mode = False
-        """
-        Initialise le suiveur de trajectoire.
         
-        Args:
-            config: Paramètres du contrôleur depuis config/robot.yaml :
-                - lookahead_distance_m: Distance de visée Pure Pursuit
-                - k_velocity: Gain de vitesse linéaire
-                - max_linear_mps: Vitesse linéaire maximale
-                - max_angular_radps: Vitesse angulaire maximale
-                - waypoint_threshold_m: Seuil waypoint atteint
-        """
-        # Mapping flexible pour supporter les deux conventions de nommage
-        self.lookahead_distance = config.get('lookahead_distance_m', 
-                                              config.get('lookahead_distance', 0.3))
-        self.k_v = config.get('k_velocity', config.get('k_v', 1.0))
-
-        # Support new convention (mps) and legacy (vel)
+        # Paramètres
+        self.lookahead_distance = config.get('lookahead_distance_m', config.get('lookahead_distance', 0.15))
+        self.k_v = config.get('k_velocity', config.get('k_v', 0.6))
+        
+        # Limites de vitesse
         max_lin = config.get('max_linear_mps', config.get('max_linear_vel', 0.22))
-        max_ang = config.get('max_angular_radps', config.get('max_angular_vel', 2.84))
+        max_ang = config.get('max_angular_radps', config.get('max_angular_vel', 1.2))
         
         self.max_linear_vel = float(max_lin)
         self.max_angular_vel = float(max_ang)
         
-        # Pure Pursuit: forward-only motion (no reverse)
-        self.min_linear_vel = 0.0
-        
-        self.waypoint_reached_threshold = config.get('waypoint_threshold_m',
-                                                      config.get('waypoint_threshold', 0.1))
-        
-    def compute_control(self, 
-                       current_pose: Tuple[float, float, float],
-                       waypoints: List[Tuple[float, float]]) -> Tuple[float, float]:
+        # Seuil waypoint atteint
+        self.waypoint_reached_threshold = config.get('waypoint_threshold_m', config.get('waypoint_threshold', 0.07))
+    
+    def compute_control(self, current_pose: Tuple[float, float, float], waypoints: List[Tuple[float, float]]) -> Tuple[float, float]:
         """
         Calcule les commandes de contrôle pour suivre les waypoints.
         
-        Machine d'état :
-        - STOP: Distance < seuil → arrêt complet
-        - GOAL_APPROACH: Distance < lookahead → contrôleur terminal (rho/alpha)
-        - INITIAL_ALIGN: Cible >90° derrière → rotation sur place
-        - PATH_FOLLOW: Sinon → Pure Pursuit géométrique
+        Machine d'état simplifiée :
+        1. Trouver le point lookahead
+        2. Aligner sur ce point (si > 45°)
+        3. Approche finale (si < 2 waypoints restants)
+        4. Pure Pursuit sinon
         
         Args:
             current_pose: (x, y, theta) pose actuelle du robot
@@ -75,76 +61,51 @@ class TrajectoryFollower:
         if not waypoints:
             return (0.0, 0.0)
         
-        import math
         x, y, theta = current_pose
         
-        # Dernier waypoint = goal
-        goal = waypoints[-1]
-        dx_goal = goal[0] - x
-        dy_goal = goal[1] - y
-        rho = math.sqrt(dx_goal**2 + dy_goal**2)  # Distance to goal
-        angle_goal = math.atan2(dy_goal, dx_goal)
-        alpha = (angle_goal - theta + math.pi) % (2 * math.pi) - math.pi
+        # 1. Trouver le point à viser (Lookahead)
+        target_wp = self._get_lookahead_point(current_pose, waypoints)
+        dx = target_wp[0] - x
+        dy = target_wp[1] - y
+        dist_to_target = math.sqrt(dx**2 + dy**2)
         
-        # ========== STATE 1: STOP ==========
-        if rho < self.waypoint_reached_threshold:
-            self._in_alignment_mode = False  # Reset alignment flag
-            print(f"[CTRL] STATE: STOP | rho={rho:.3f}m < threshold")
-            return (0.0, 0.0)
+        # 2. Alpha calculé sur la CIBLE LOCALE (lookahead), pas sur le goal final
+        angle_to_target = math.atan2(dy, dx)
+        alpha = (angle_to_target - theta + math.pi) % (2 * math.pi) - math.pi
         
-        # ========== STATE 2: ALIGNMENT (Hystérésis) ==========
-        # CRITIQUE: Vérifier l'alignement AVANT d'approcher la cible
-        # Empêche spiraling en forçant rotation sur place si mal aligné
-        align_enter_threshold = math.radians(45)
-        align_exit_threshold = math.radians(10)
-        
-        # Mise à jour de l'état avec hystérésis
-        if not self._in_alignment_mode and abs(alpha) > align_enter_threshold:
+        # 3. État ALIGNEMENT (Hystérésis sur cible locale)
+        if not self._in_alignment_mode and abs(alpha) > math.radians(45):
             self._in_alignment_mode = True
-        elif self._in_alignment_mode and abs(alpha) < align_exit_threshold:
+        elif self._in_alignment_mode and abs(alpha) < math.radians(10):
             self._in_alignment_mode = False
         
         if self._in_alignment_mode:
             v = 0.0
-            k_align = 1.5  # Gain de rotation sur place
-            omega = np.clip(k_align * alpha, -self.max_angular_vel, self.max_angular_vel)
-            print(f"[CTRL] STATE: ALIGNMENT | alpha={math.degrees(alpha):.1f}° → ω={omega:.3f}")
-            return (v, omega)
+            omega = -(1.2 * alpha)  # Signe inversé pour hardware
+            omega_sat = np.clip(omega, -self.max_angular_vel, self.max_angular_vel)
+            print(f"[CTRL] ALIGNMENT | alpha={math.degrees(alpha):.1f}° → ω={omega_sat:.3f}")
+            return (v, omega_sat)
         
-        # ========== STATE 3: GOAL_APPROACH ==========
-        # Seuil réduit (0.15m) pour laisser Pure Pursuit travailler plus longtemps
-        if rho < 0.15:
-            # Contrôleur unicycle terminal avec gains doux
-            k_rho = 0.3   # Approche très douce
-            k_alpha = 1.0  # Évite les coups de volant
-            
-            v = k_rho * rho
-            omega = k_alpha * alpha
-            
-            # Saturation
-            v = max(min(v, self.max_linear_vel), self.min_linear_vel)
-            omega = max(min(omega, self.max_angular_vel), -self.max_angular_vel)
-            
-            print(f"[CTRL] STATE: GOAL_APPROACH | rho={rho:.3f}m alpha={math.degrees(alpha):.1f}° → v={v:.3f} ω={omega:.3f}")
-            return (v, omega)
+        # 4. Approche finale (seulement s'il reste <= 2 points)
+        if dist_to_target < self.lookahead_distance and len(waypoints) <= 2:
+            v = 0.4 * dist_to_target
+            omega = -(1.0 * alpha)
+            v_sat = np.clip(v, 0, self.max_linear_vel)
+            omega_sat = np.clip(omega, -self.max_angular_vel, self.max_angular_vel)
+            print(f"[CTRL] FINAL_APPROACH | dist={dist_to_target:.3f}m alpha={math.degrees(alpha):.1f}° → v={v_sat:.3f} ω={omega_sat:.3f}")
+            return (v_sat, omega_sat)
         
-        # ========== STATE 4: PATH_FOLLOW (Pure Pursuit) ==========
-        target_wp = self._get_lookahead_point(current_pose, waypoints)
-        
-        if target_wp is None:
-            return (0.0, 0.0)
-        
+        # 5. Pure Pursuit classique
         v, omega = self._pure_pursuit(current_pose, target_wp)
-        
-        print(f"[CTRL] STATE: PATH_FOLLOW | rho={rho:.3f}m → v={v:.3f} ω={omega:.3f}")
+        print(f"[CTRL] PURE_PURSUIT | dist={dist_to_target:.3f}m → v={v:.3f} ω={omega:.3f}")
         return (v, omega)
     
     def _get_lookahead_point(self, pose, waypoints):
         """
         Trouve le waypoint à la distance de visée.
         
-        CRITIQUE: Le waypoint doit être DEVANT le robot (x_r > 0)
-        pour éviter l'oscillation autour de x_r ≈ 0.
+        Cherche le point le plus loin qui est à la distance lookahead
+        et devant le robot (x_r > 0).
         
         Args:
             pose: Pose actuelle du robot
@@ -153,47 +114,24 @@ class TrajectoryFollower:
         Returns:
             (x, y) waypoint cible
         """
-        import math
-        
         x, y, theta = pose
         
-        # Trouve le premier waypoint devant ET au-delà de la distance de visée
-        for wp in waypoints:
-            dx = wp[0] - x
-            dy = wp[1] - y
-            
-            # Transform to robot frame to check if in front
-            x_r = math.cos(theta) * dx + math.sin(theta) * dy
-            
-            # Skip waypoints behind robot
-            if x_r <= 0:
-                continue
-            
-            dist = math.sqrt(dx**2 + dy**2)
-            if dist >= self.lookahead_distance:
-                return wp
-        
-        # Si aucun waypoint valide, chercher le dernier waypoint devant
+        # On cherche le point le plus loin qui est à la distance lookahead
         for wp in reversed(waypoints):
-            dx = wp[0] - x
-            dy = wp[1] - y
-            x_r = math.cos(theta) * dx + math.sin(theta) * dy
-            if x_r > 0:
-                return wp
+            dist = math.sqrt((wp[0] - x)**2 + (wp[1] - y)**2)
+            if dist >= self.lookahead_distance:
+                # Vérifier s'il est devant (x_r > 0)
+                dx, dy = wp[0] - x, wp[1] - y
+                x_r = math.cos(theta) * dx + math.sin(theta) * dy
+                if x_r > 0:
+                    return wp
         
-        # Dernier recours: retourner le dernier waypoint (même s'il est derrière)
-        return waypoints[-1] if waypoints else None
+        # Sinon retourner le dernier waypoint
+        return waypoints[-1]
     
     def _pure_pursuit(self, pose, target):
         """
-        Canonical Geometric Pure Pursuit Controller.
-        
-        Implements pure pursuit using curvature-based control law:
-        - Transform target to robot frame
-        - Compute curvature: κ = 2*y_r / L_d²
-        - Compute angular velocity: ω = v * κ
-        
-        This produces continuous, stable commands without rotation-on-the-spot.
+        Contrôleur Pure Pursuit géométrique.
         
         Args:
             pose: (x, y, theta) - robot pose in world frame
@@ -202,56 +140,33 @@ class TrajectoryFollower:
         Returns:
             (v, omega) - linear and angular velocities
         """
-        import math
-        
         x, y, theta = pose
-        x_t, y_t = target
+        dx, dy = target[0] - x, target[1] - y
         
-        # Step 1: Transform target from world frame to robot frame
-        dx = x_t - x
-        dy = y_t - y
-        
-        # Robot frame transformation
+        # Transformation repère robot
         x_r = math.cos(theta) * dx + math.sin(theta) * dy
         y_r = -math.sin(theta) * dx + math.cos(theta) * dy
         
-        # Debug: log frame transformation
-        print(f"[CTRL] Pure Pursuit: x_r={x_r:.3f} y_r={y_r:.3f} L_d={math.sqrt(x_r**2 + y_r**2):.3f}")
-        
-        # Safety: if target somehow behind (shouldn't happen with alignment mode)
-        if x_r <= 0:
-            print(f"[CTRL] WARNING: x_r <= 0 despite alignment mode, stopping")
+        L_d2 = x_r**2 + y_r**2
+        if L_d2 < 0.001:
             return (0.0, 0.0)
         
-        # Step 2: Compute lookahead distance (actual distance to target)
-        L_d = math.sqrt(x_r**2 + y_r**2)
+        # Courbure
+        kappa = (2.0 * y_r) / L_d2
         
-        # Step 3: Compute curvature using geometric Pure Pursuit formula
-        # κ = 2 * y_r / L_d²
-        if L_d < 0.01:  # Too close, stop
-            return (0.0, 0.0)
+        # Vitesse avec modulation en courbe
+        v = self.k_v * math.sqrt(L_d2)
+        v = v / (1.0 + 0.5 * abs(kappa))  # Ralentir en courbe
         
-        kappa = (2.0 * y_r) / (L_d * L_d)
+        # Commande angulaire (signe inversé)
+        omega = -(v * kappa)
         
-        # Step 4: Compute linear velocity with curvature modulation
-        # Reduce speed in sharp turns for stability
-        v = self.k_v * L_d
-        
-        # Modulation: v_final = v / (1 + factor * |kappa|)
-        curvature_factor = 0.5  # Ajustable selon besoin
-        v = v / (1.0 + curvature_factor * abs(kappa))
-        
-        # Step 5: Compute angular velocity from curvature
-        # ω = v * κ
-        omega = v * kappa
-        
-        # Step 6: Apply velocity limits (single saturation point)
-        v = max(min(v, self.max_linear_vel), self.min_linear_vel)
-        omega = max(min(omega, self.max_angular_vel), -self.max_angular_vel)
+        # Saturation
+        v = np.clip(v, 0, self.max_linear_vel)
+        omega = np.clip(omega, -self.max_angular_vel, self.max_angular_vel)
         
         return (v, omega)
     
-
     def is_waypoint_reached(self, pose, waypoint):
         """
         Vérifie si le waypoint actuel est atteint.
@@ -263,6 +178,5 @@ class TrajectoryFollower:
         Returns:
             True si dans le seuil
         """
-        x, y, _ = pose
-        dist = np.sqrt((waypoint[0] - x)**2 + (waypoint[1] - y)**2)
+        dist = math.sqrt((waypoint[0] - pose[0])**2 + (waypoint[1] - pose[1])**2)
         return dist < self.waypoint_reached_threshold

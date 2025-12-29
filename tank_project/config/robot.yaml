@@ -8,8 +8,8 @@ physical:
   robot_radius_m: 0.09 # Approximation as circle
 
 velocity_limits:
-  max_linear_mps: 0.22 # Max linear velocity (m/s)
-  max_angular_radps: 2.84 # Max angular velocity (rad/s)
+  max_linear_mps: 0.20 # Réduit pour stabilité ArUco
+  max_angular_radps: 1.0 # Crucial : ne pas dépasser 1.0 pour la stabilité ArUco
   # On limite la marche arrière pour éviter qu'il ne grimpe aux murs
   min_linear_mps: -0.05
 
@@ -19,10 +19,9 @@ acceleration_limits:
 
 control:
   # Trajectory following parameters
-  lookahead_distance_m: 0.3
-  k_velocity: 1.0  # Linear velocity gain (augmenté pour suivi réactif)
-  k_theta: 2.0     # Angular velocity gain (permet rotation rapide vers waypoints)
-  waypoint_threshold_m: 0.1 # Distance to consider waypoint reached
+  lookahead_distance_m: 0.15  # Réduit pour laisser Pure Pursuit guider
+  k_velocity: 0.15  # Linear velocity gain
+  waypoint_threshold_m: 0.05 # Distance to consider waypoint reached
 
 ros_bridge:
   host: "127.0.0.1"

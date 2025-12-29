@@ -48,7 +48,10 @@ ROBOT_AI_ID = 5      # Robot qui se déplace (IA)
 ROBOT_ENEMY_ID = 4   # Robot cible (fixe - adversaire)
 
 # Distance de sécurité (en mètres)
-SAFETY_DISTANCE = 0.4  # 40cm - distance de tir optimale
+SAFETY_DISTANCE = 0.20  # 20cm - distance de tir optimale (réduite)
+
+# Seuil de replanification (cercle de tolérance)
+REPLAN_THRESHOLD_M = 0.08  # 8cm - ne replanifie que si l'ennemi bouge > 8cm
 
 
 def load_projector_config():
@@ -170,8 +173,8 @@ def main():
             'k_velocity': 0.15,              # Vitesse linéaire
             'k_theta': 1.2,                  # Non utilisé (remplacé par state machine)
             'waypoint_threshold_m': 0.05,    # Seuil de waypoint atteint
-            'max_linear_mps': 0.22,
-            'max_angular_radps': 1.5         # Réduit pour que caméra puisse suivre
+            'max_linear_mps': 0.20,
+            'max_angular_radps': 1.0         # Réduit à 1.0 pour stabilité ArUco
         }
     
     controller = TrajectoryFollower(control_conf)
@@ -202,6 +205,7 @@ def main():
     current_waypoint_idx = 0
     tick_counter = 0
     last_log_time = time.time()
+    last_enemy_pos_for_path = None  # Pour détecter si ennemi a bougé
     
     print("\n[TEST] ========================================")
     print("[TEST] Positionnez les robots:")
@@ -281,6 +285,9 @@ def main():
             
             elif state == "PLANNING":
                 if ai_pose and enemy_pose:
+                    # Mémoriser où était l'ennemi au moment du calcul
+                    last_enemy_pos_for_path = np.array([enemy_pose[0], enemy_pose[1]])
+                    
                     print("[PLAN] Calcul de la cible avec distance de sécurité...")
                     
                     # Calculer le point cible avec distance de sécurité
@@ -306,12 +313,18 @@ def main():
                     
                     # Planifier le chemin
                     start_time = time.time()
-                    path = planner.plan(ai_pose[:2], target_pos)
+                    full_path = planner.plan(ai_pose[:2], target_pos)
                     planning_time = time.time() - start_time
                     
-                    if path and len(path) > 0:
+                    if full_path and len(full_path) > 0:
+                        # Downsampling : garder 1 point sur 4 pour fluidité (tous les ~8-10cm)
+                        path = full_path[::4] if len(full_path) > 4 else full_path
+                        # S'assurer que la cible finale est bien dans le path
+                        if path[-1] != target_pos:
+                            path.append(target_pos)
+                        
                         print(f"[PLAN] ✓ Chemin trouvé en {planning_time*1000:.1f}ms")
-                        print(f"[PLAN] Nombre de waypoints : {len(path)}")
+                        print(f"[PLAN] Nombre de waypoints : {len(full_path)} → {len(path)} (downsampled)")
                         print(f"[PLAN] Premier waypoint : ({path[0][0]:.3f}, {path[0][1]:.3f})")
                         print(f"[PLAN] Dernier waypoint : ({path[-1][0]:.3f}, {path[-1][1]:.3f})")
                         current_waypoint_idx = 0
@@ -326,11 +339,22 @@ def main():
                         state = "NAVIGATING"
             
             elif state == "NAVIGATING":
-                if ai_pose and path:
-                    # Vérifier si destination atteinte
+                if ai_pose and path and enemy_pose:
+                    # ======== BOUCLE FERMÉE : Vérifier si l'ennemi a bougé ========
+                    if last_enemy_pos_for_path is not None:
+                        curr_enemy_pos = np.array([enemy_pose[0], enemy_pose[1]])
+                        enemy_movement = np.linalg.norm(curr_enemy_pos - last_enemy_pos_for_path)
+                        
+                        if enemy_movement > REPLAN_THRESHOLD_M:
+                            print(f"\n[LOOP] ⚠️  L'adversaire a bougé de {enemy_movement*100:.1f}cm > {REPLAN_THRESHOLD_M*100:.0f}cm")
+                            print("[LOOP] → Replanification du chemin...")
+                            state = "PLANNING"
+                            continue
+                    
+                    # Vérifier si destination atteinte (tous waypoints passés)
                     if current_waypoint_idx >= len(path):
                         print("\n[NAV] ========================================")
-                        print("[NAV] ✓ DESTINATION ATTEINTE !")
+                        print("[NAV] ✓ TOUS LES WAYPOINTS ATTEINTS !")
                         if robot_connected:
                             print("[NAV] Arrêt du robot...")
                             ros_bridge.send_velocity_command(ROBOT_AI_ID, 0.0, 0.0)
@@ -412,8 +436,19 @@ def main():
                                 ros_bridge.send_velocity_command(ROBOT_AI_ID, v_cmd, omega_cmd)
             
             elif state == "REACHED":
-                # Attendre
-                pass
+                # Arrêt confirmé
+                if robot_connected:
+                    ros_bridge.send_velocity_command(ROBOT_AI_ID, 0.0, 0.0)
+                
+                # ======== BOUCLE FERMÉE : Surveiller si l'ennemi s'éloigne ========
+                if enemy_pose and last_enemy_pos_for_path is not None:
+                    curr_enemy_pos = np.array([enemy_pose[0], enemy_pose[1]])
+                    enemy_movement = np.linalg.norm(curr_enemy_pos - last_enemy_pos_for_path)
+                    
+                    if enemy_movement > REPLAN_THRESHOLD_M:
+                        print(f"\n[LOOP] ⚠️  L'adversaire s'est éloigné de {enemy_movement*100:.1f}cm")
+                        print("[LOOP] → Nouvelle planification...")
+                        state = "PLANNING"
 
             # 6. Rendu Pygame
             screen.fill(C_BG)
