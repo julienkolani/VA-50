@@ -200,6 +200,64 @@ def main():
         inflation_margin_m=robot_config.get('inflation_margin_m', 0.05)
     )
     
+    # CHARGEMENT GRILLE OBSTACLES (Occupancy Grid)
+    occupancy_path = Path(__file__).parent.parent / 'config' / 'occupancy.npy'
+    if occupancy_path.exists():
+        print(f"[MAIN] Chargement de la grille d'occupation : {occupancy_path}")
+        try:
+            # La grille sauvegardée est une image binaire (1024x768 par défaut)
+            # pixels_per_meter est connu via calibration ou transform_mgr
+            occupancy_img = np.load(occupancy_path)
+            
+            # Récupération de l'échelle (pixels/mètre)
+            pixels_per_meter = 1.0 # Défaut
+            if isinstance(transform_mgr, UnifiedTransform):
+                pixels_per_meter = transform_mgr.pixels_per_meter
+            
+            if pixels_per_meter > 0:
+                # Trouver les pixels occupés (> 0)
+                # Note: occupancy_img est (H, W) donc (y, x)
+                occ_y, occ_x = np.where(occupancy_img > 0)
+                
+                # Convertir Pixels -> Mètres (Source: Projector View)
+                # Attention: L'image est une vue "Projecteur" (0,0 en haut à gauche)
+                # Les coordonnées projecteur correspondent-elles au monde ?
+                # OUI, UnifiedTransform aligne le monde sur le projecteur (offset près).
+                # MAIS: WorldModel attend (x_m, y_m).
+                
+                # Conversion vectorisée : Mètres = Pixels / Scale
+                # (Simple scaling car l'image est "rectifiée" en vue top-down)
+                # On ignore l'offset car l'image représente TOUT l'espace de projection
+                x_m = occ_x / pixels_per_meter
+                y_m = occ_y / pixels_per_meter
+                
+                # Filtrer ce qui est hors de l'arène (optionnel mais propre)
+                valid_mask = (x_m >= 0) & (x_m <= arena_w) & (y_m >= 0) & (y_m <= arena_h)
+                x_m = x_m[valid_mask]
+                y_m = y_m[valid_mask]
+                
+                # Conversion en cellules Grille (OccupancyGrid a sa propre résolution)
+                # On utilise world.grid.world_to_grid(x, y) mais vectorisé
+                # grid_cols = int(x / res), grid_rows = int(y / res)
+                
+                res = world.grid.resolution
+                grid_cols = (x_m / res).astype(int)
+                grid_rows = (y_m / res).astype(int)
+                
+                # Créer une liste de tuples (row, col) uniques
+                # Astuce: utiliser set pour l'unicité
+                obstacle_cells = list(set(zip(grid_rows, grid_cols)))
+                
+                world.grid.set_static_obstacles(obstacle_cells)
+                print(f"[MAIN] {len(obstacle_cells)} cellules d'obstacles chargées.")
+            else:
+                print("[MAIN] ERREUR: pixels_per_meter invalide (0), impossible de charger la grille.")
+        except Exception as e:
+            print(f"[MAIN] ERREUR chargement grille: {e}")
+    else:
+        print("[MAIN] Aucune grille d'occupation trouvée (config/occupancy.npy)")
+
+    
     # CRITIQUE: Générer la costmap AVANT de donner la grille à l'IA
     # Sinon le robot frôlera les murs
     world.generate_costmap()
