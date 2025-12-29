@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
 """
-Export Debug Data - Sauvegarde Donnees Debug
+Export Données Debug - Sauvegarde Snapshots
 
-Export snapshots debug pour analyse offline:
-- Images camera (capture live ou test)
-- Grilles occupation (NumPy + visualisation)
+Exporte des instantanés pour l'analyse hors ligne :
+- Images caméra (capture en direct ou test)
+- Grilles d'occupation (NumPy + visualisation)
 - Homographies et calibration
-- Etat jeu (JSON)
-- Logs
+- État du jeu (JSON)
+- Logs récents
 
 Modes:
-    - Standalone : Export config + logs (sans systeme actif)
-    - Live       : Capture snapshot depuis camera (avec --live)
+    - Autonome : Export config + logs (sans système actif)
+    - En direct : Capture snapshot depuis caméra (avec --live)
 
 Usage:
     python3 export_debug_data.py [--output-dir DIR] [--live]
     
-Examples:
+Exemples:
     # Export config + logs seulement
     python3 export_debug_data.py
     
-    # Capture live depuis camera
+    # Capture en direct depuis caméra
     python3 export_debug_data.py --live
     
-    # Export vers repertoire specifique
+    # Export vers répertoire spécifique
     python3 export_debug_data.py --output-dir ~/mon_debug --live
 """
 
@@ -59,9 +59,9 @@ def create_debug_export(output_dir: str = None, live_capture: bool = False):
     
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    print("[EXPORT] ========== Debug Export ==========")
-    print("[EXPORT] Output directory: {}".format(output_dir.absolute()))
-    print("[EXPORT] Live capture: {}".format('ENABLED' if live_capture else 'DISABLED'))
+    print("[EXPORT] ========== Export Debug ==========")
+    print("[EXPORT] Dossier de sortie : {}".format(output_dir.absolute()))
+    print("[EXPORT] Capture direct: {}".format('ACTIVÉE' if live_capture else 'DÉSACTIVÉE'))
     print()
     
     # Creer fichier manifest
@@ -159,9 +159,25 @@ def _export_camera_frame(output_dir: Path) -> bool:
         from perception.camera.realsense_stream import RealSenseStream
         from perception.camera.aruco_detector import ArucoDetector
         
+        # Charger config
+        cam_width = 1280
+        cam_height = 720
+        cam_fps = 30
+        
+        try:
+            config_dir = Path(__file__).parent.parent / 'config'
+            with open(config_dir / 'camera.yaml') as f:
+                cam_conf = yaml.safe_load(f)
+                rs_conf = cam_conf.get('realsense', {})
+                cam_width = rs_conf.get('width', 1280)
+                cam_height = rs_conf.get('height', 720)
+                cam_fps = rs_conf.get('fps', 30)
+        except Exception as e:
+            print(f"[EXPORT]   Warning: Could not load camera config ({e}), using defaults")
+            
         # Initialiser camera
-        print("[EXPORT]   Initializing RealSense camera...")
-        camera = RealSenseStream(width=640, height=480, fps=30)
+        print(f"[EXPORT]   Initializing RealSense camera ({cam_width}x{cam_height} @ {cam_fps}fps)...")
+        camera = RealSenseStream(width=cam_width, height=cam_height, fps=cam_fps)
         camera.start()
         
         # Attendre stabilisation

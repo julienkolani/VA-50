@@ -21,9 +21,9 @@ import traceback
 class SafetyConfig:
     """Configuration des limites de vitesse"""
     def __init__(self):
-        self.max_linear_vel = 0.5
+        self.max_linear_vel = 0.22  # Vitesse linéaire max débridée
         self.min_linear_vel = -0.3
-        self.max_angular_vel = 1.5
+        self.max_angular_vel = 2.84  # Vitesse angulaire réelle max du TurtleBot
 
 
 class VelocityLimiter:
@@ -235,36 +235,14 @@ class ROSBridge(Node):
             
             async for message in websocket:
                 msg_count += 1
-                receive_time = datetime.now()
                 
-                # Log de réception détaillé
-                self.get_logger().info("┌" + "─"*58 + "┐")
-                self.get_logger().info(f"│  MESSAGE #{msg_count:<46} │")
-                self.get_logger().info("├" + "─"*58 + "┤")
-                self.get_logger().info(f"│  Client: {client_id:<45} │")
-                self.get_logger().info(f"│  Heure: {receive_time.strftime('%H:%M:%S.%f')[:-3]:<46} │")
-                self.get_logger().info(f"│  Taille: {len(message)} octets{' '*(44-len(str(len(message))))} │")
-                self.get_logger().info("└" + "─"*58 + "┘")
-                
-                # Log du contenu brut
-                self.get_logger().info(f" Contenu brut:")
-                if len(message) <= 500:
-                    self.get_logger().info(f"   {message}")
-                else:
-                    self.get_logger().info(f"   {message[:500]}... (tronqué)")
+                # Log compact (uniquement toutes les 100 messages ou en mode debug)
+                if msg_count == 1 or msg_count % 100 == 0:
+                    self.get_logger().info(f"[WS {client_id}] Message #{msg_count} reçu")
                 
                 try:
                     data = json.loads(message)
                     msg_type = data.get('type', 'unknown')
-                    
-                    self.get_logger().info(f" Message parsé:")
-                    self.get_logger().info(f"   ├─ Type: {msg_type}")
-                    
-                    # Log du JSON complet
-                    json_str = json.dumps(data, indent=2)
-                    self.get_logger().info(f"   └─ Données:")
-                    for line in json_str.split('\n'):
-                        self.get_logger().info(f"      {line}")
                     
                     # Traitement selon le type
                     if msg_type == 'cmd_vel':

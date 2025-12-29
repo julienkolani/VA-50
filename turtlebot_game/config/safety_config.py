@@ -10,9 +10,9 @@ class SafetyBridgeConfig:
     WS_PORT = 8765
     
     # ===== LIMITES DE VITESSE =====
-    MAX_LINEAR_VEL = 0.5      # m/s
+    MAX_LINEAR_VEL = 0.22     # m/s - Vitesse linéaire max débridée
     MIN_LINEAR_VEL = -0.3     # m/s
-    MAX_ANGULAR_VEL = 1.5     # rad/s
+    MAX_ANGULAR_VEL = 2.84    # rad/s - Vitesse angulaire réelle max du TurtleBot
     
     # ===== SÉCURITÉ (pour version avec détection d'obstacles) =====
     SAFETY_DISTANCE = 0.3           # Distance minimale obstacles (m)
@@ -89,10 +89,10 @@ class ProdConfig(SafetyBridgeConfig):
     """Configuration pour production"""
     DEBUG = False
     LOG_LEVEL = "INFO"
-    MAX_LINEAR_VEL = 0.3  # Plus conservateur
+    MAX_LINEAR_VEL = 0.22  # Vitesse débridée (anciennement 0.3)
 
 
 class FastConfig(SafetyBridgeConfig):
     """Configuration pour robot rapide"""
-    MAX_LINEAR_VEL = 1.0
-    MAX_ANGULAR_VEL = 2.0
+    MAX_LINEAR_VEL = 0.22   # Limité à la vitesse max réelle du TurtleBot
+    MAX_ANGULAR_VEL = 2.84  # Vitesse angulaire réelle max du TurtleBot

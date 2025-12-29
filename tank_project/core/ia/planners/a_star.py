@@ -153,16 +153,52 @@ class AStarPlanner:
             total_path.append(current)
         return total_path[::-1] # Inverse
     
-    def _simplify_path(self, path_cells):
-        """Lissage simple du chemin (saute les étapes minimes)."""
+    def _simplify_path(self, path_cells, epsilon=1.5):
+        """
+        Simplification du chemin via algorithme Douglas-Peucker.
+        
+        Args:
+            path_cells: Liste de cellules (row, col)
+            epsilon: Tolérance de simplification (en cellules)
+            
+        Returns:
+            Liste simplifiée de cellules
+        """
         if len(path_cells) <= 2:
             return path_cells
+        
+        # Trouve le point le plus éloigné de la ligne start-end
+        start = np.array(path_cells[0])
+        end = np.array(path_cells[-1])
+        
+        max_dist = 0
+        max_idx = 0
+        
+        line_vec = end - start
+        line_len = np.linalg.norm(line_vec)
+        
+        if line_len == 0:
+            return [path_cells[0], path_cells[-1]]
+        
+        line_unit = line_vec / line_len
+        
+        for i in range(1, len(path_cells) - 1):
+            point = np.array(path_cells[i])
+            vec_to_point = point - start
             
-        simplified = [path_cells[0]]
-        for i in range(1, len(path_cells)-1):
-            # Garde chaque Nième point ou vérifie la ligne de vue (coûteux)
-            # Pour l'instant, retourne tous les points pour être sûr pour le suiveur de trajectoire
-            simplified.append(path_cells[i])
+            # Distance perpendiculaire à la ligne
+            proj_length = np.dot(vec_to_point, line_unit)
+            proj_point = start + proj_length * line_unit
+            dist = np.linalg.norm(point - proj_point)
             
-        simplified.append(path_cells[-1])
-        return simplified
+            if dist > max_dist:
+                max_dist = dist
+                max_idx = i
+        
+        # Si le point le plus éloigné dépasse epsilon, récursion
+        if max_dist > epsilon:
+            left = self._simplify_path(path_cells[:max_idx + 1], epsilon)
+            right = self._simplify_path(path_cells[max_idx:], epsilon)
+            return left[:-1] + right
+        else:
+            return [path_cells[0], path_cells[-1]]

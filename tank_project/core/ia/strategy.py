@@ -113,6 +113,7 @@ class AIStrategy:
         decision['fire_request'] = bt_output.get('fire_request', False)
         decision['has_los'] = bt_output.get('has_los', False)
         decision['state'] = bt_output.get('state', 'IDLE')
+        decision['target_orientation'] = bt_output.get('target_orientation')
         self.state = decision['state']
         
         target_pos = bt_output.get('target_position')
@@ -141,6 +142,12 @@ class AIStrategy:
                     self.current_path = path
                     self.current_waypoint_idx = 0
                     print("[AI] Nouveau chemin planifié : {} waypoints".format(len(path)))
+                else:
+                    # FALLBACK: Si A* échoue, force un waypoint direct vers la cible
+                    # Cela évite que le robot reste immobile
+                    print("[AI] ATTENTION: Pas de chemin trouvé, waypoint direct forcé")
+                    self.current_path = [target_pos]
+                    self.current_waypoint_idx = 0
         
         decision['target_position'] = target_pos
         

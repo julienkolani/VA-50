@@ -5,8 +5,9 @@ match:
   tick_rate_fps: 30 # Game loop frequency
 
 cooldowns:
-  human_shot_seconds: 5.0 # Human can shoot every 5 seconds
-  ai_shot_seconds: 3.0 # AI can shoot every 3 seconds
+  # Cooldowns équilibrés pour un gameplay juste
+  human_shot_seconds: 4.0   # Humain peut tirer toutes les 4 secondes
+  ai_shot_seconds: 4.0      # IA peut tirer toutes les 4 secondes
 
 win_conditions:
   max_hits: 10 # First to 10 hits wins

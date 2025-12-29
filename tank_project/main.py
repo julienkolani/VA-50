@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """
+"""
 Tank Arena - Point d'Entrée Principal
 
 Point d'entrée unique pour le projet tank arena.
@@ -65,7 +66,7 @@ Exemples:
     if args.mode == 'calibration':
         print("[MAIN] Mode: CALIBRATION")
         print("-" * 60)
-        from scripts.run_calibration import main as run_calibration
+        from perception.calibration.standalone_wizard import main as run_calibration
         run_calibration()
         
     elif args.mode == 'export':

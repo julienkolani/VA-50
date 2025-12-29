@@ -50,6 +50,10 @@ class GameEngine:
         self.config = config
         
         # Charge les règles
+        from .rules import GameRules
+        from .timers import CooldownManager
+        from .state import GameStatus # Important
+
         self.rules = GameRules.from_config(config['match']) if 'match' in config else GameRules()
         
         # Sous-systèmes auxiliaires
@@ -199,6 +203,19 @@ class GameEngine:
             return True, "HUMAN"
             
         return False, None
+
+    def start_match(self, duration_s=None):
+        """Force le démarrage du match."""
+        from .state import GameStatus # Import local pour éviter les cycles
+        if duration_s:
+            self.rules.match_duration_seconds = duration_s
+        
+        self.start_time = time.time()
+        self.state = GameStatus.PLAYING
+        if self.hit_manager:
+            self.hit_manager.clear_history()
+        self.winner = None
+        print(f"[GAME] Match DÉMARRÉ (Durée: {self.rules.match_duration_seconds}s)")
 
 # Imports en bas pour éviter les dépendances circulaires si nécessaire,
 # ou en haut si sûr. 

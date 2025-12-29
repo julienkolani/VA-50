@@ -24,7 +24,7 @@ K_ANGULAR = 1.0  # Amplification vitesse angulaire (défaut: 6.0)
 # CONTRÔLEURS
 # ============================================================================
 # Facteur de vitesse initial (peut être modifié avec +/-)
-INITIAL_SPEED_FACTOR = 0.07
+INITIAL_SPEED_FACTOR = 1.0  # Débloqué à 100% (ancien: 0.07)
 
 # Limites des facteurs de vitesse
 MIN_SPEED_FACTOR = 0.2

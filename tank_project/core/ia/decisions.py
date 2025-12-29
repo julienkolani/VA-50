@@ -309,3 +309,34 @@ def get_angle_to_enemy(context: Dict) -> float:
     dy = human_pose[1] - ai_pose[1]
     
     return float(np.arctan2(dy, dx))
+
+
+def is_aimed_at_enemy(context: Dict, threshold_deg: float = 10.0) -> bool:
+    """
+    Vérifie si l'IA est alignée avec l'ennemi (angle < threshold).
+    
+    Args:
+        context: État du monde
+        threshold_deg: Seuil d'alignement en degrés
+        
+    Returns:
+        True si aligné
+    """
+    ai_pose = context.get('ai_pose')
+    human_pose = context.get('human_pose')
+    
+    if ai_pose is None or human_pose is None:
+        return False
+        
+    target_angle = get_angle_to_enemy(context)
+    current_angle = ai_pose[2]
+    
+    diff = target_angle - current_angle
+    # Normalisation -pi à pi
+    while diff > np.pi: diff -= 2*np.pi
+    while diff < -np.pi: diff += 2*np.pi
+    
+    aligned = abs(diff) < np.radians(threshold_deg)
+    
+    # print(f"[DECISION] Alignement: Erreur={np.degrees(diff):.1f}°, Seuil={threshold_deg}°, Aligné={aligned}")
+    return aligned

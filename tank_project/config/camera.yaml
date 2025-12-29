@@ -1,37 +1,41 @@
-# Camera Configuration
+# Configuration Caméra
 
 realsense:
-  # Résolution réduite pour détection ArUco rapide (~15ms au lieu de 50-80ms)
+  # Résolution HD pour meilleure précision
   # L'homographie gère le changement d'échelle automatiquement
-  width: 848
-  height: 480
-  fps: 60 # Plus fluide pour le contrôle robot
+  width: 1280
+  height: 720
+  fps: 30 # IPS standard pour cette résolution
   enable_depth: false
 
 aruco:
-  dictionary: DICT_4X4_50 # ArUco dictionary type
+  dictionary: DICT_4X4_50 # Type de dictionnaire ArUco
 
-  # Marker IDs and their meanings
+  # IDs des marqueurs et leurs significations
   markers:
-    projected_corners: [0, 1, 2, 3] # Virtual corners for calibration
-    robot_ai: 4 # AI robot marker
-    robot_human: 5 # Human robot marker
+    projected_corners: [0, 1, 2, 3] # Coins virtuels pour calibration
+    robot_ai: 4 # Marqueur robot IA
+    robot_human: 5 # Marqueur robot Humain
 
-  # Physical marker size for scale estimation
-  marker_size_m: 0.10 # 10cm markers
+  # Taille physique des marqueurs pour estimation d'échelle
+  marker_size_m: 0.10 # Marqueurs de 10cm
 
 kalman:
-  # Process noise covariance
+  # Covariance du bruit de processus (Modèle physique)
+  # Augmenté pour permettre des changements de direction plus vifs
   process_noise:
-    position: 0.01
-    velocity: 0.1
-    orientation: 0.01
-    angular_velocity: 0.1
+    position: 0.1     # Était 0.01
+    velocity: 1.0     # Était 0.1
+    orientation: 0.1  # Était 0.01
+    angular_velocity: 1.0 # Était 0.1
 
-  # Measurement noise covariance
+  # Covariance du bruit de mesure (Confiance capteur)
+  # Diminué car la détection ArUco est très précise (low jitter)
+  # Cela rapproche le comportement du "raw tracking" de show_grid
   measurement_noise:
-    position: 0.05
-    orientation: 0.1
+    position: 0.001   # Était 0.05
+    orientation: 0.01 # Était 0.1
 
-  # Time step (matches game tick rate)
-  dt: 0.0333 # 30 FPS
+  # Note: Le pas de temps (dt) est maintenant calculé dynamiquement
+  # dans run_game.py au lieu d'être codé en dur ici.
+  # Cela évite les glissements si le pipeline ralentit.

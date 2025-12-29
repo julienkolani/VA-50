@@ -1,5 +1,14 @@
 """
-Assistant de Calibration - VERSION CORRIGÉE (AFFICHAGE MARQUEURS + DISTORSION)
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                              ⚠️  OBSOLÈTE  ⚠️                                 ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║  Ce module utilise l'ancien système de calibration.                           ║
+║                                                                               ║
+║  UTILISEZ PLUTÔT: standalone_wizard.py                                        ║
+║    python -m perception.calibration.standalone_wizard                         ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+Assistant de Calibration - VERSION LEGACY (OBSOLÈTE)
 
 Correctif :
 - La boucle d'attente redessine les marqueurs ArUco au lieu de les effacer.

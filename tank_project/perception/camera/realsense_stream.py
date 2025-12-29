@@ -25,8 +25,8 @@ class RealSenseStream:
     """
     
     def __init__(self, 
-                 width: int = 640, 
-                 height: int = 480, 
+                 width: int = 1280, 
+                 height: int = 720, 
                  fps: int = 30,
                  enable_depth: bool = False):
         """

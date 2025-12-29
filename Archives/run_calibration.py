@@ -1,6 +1,21 @@
 #!/usr/bin/env python3
 """
-Calibration Wizard Runner
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                              ⚠️  OBSOLÈTE  ⚠️                                 ║
+╠═══════════════════════════════════════════════════════════════════════════════╣
+║  Ce script utilise l'ancien système de calibration (H_C2W -> arena.yaml).     ║
+║                                                                               ║
+║  UTILISEZ PLUTÔT:                                                             ║
+║    python -m perception.calibration.standalone_wizard                         ║
+║  ou                                                                           ║
+║    ./run_calibration_wizard.sh                                                ║
+║                                                                               ║
+║  Le nouveau système utilise:                                                  ║
+║    - calibration.npz (matrices numpy)                                         ║
+║    - calibration_meta.json (métadonnées)                                      ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+Calibration Wizard Runner (LEGACY)
 
 Interactive calibration process to set up the arena:
 1. Safe zone definition

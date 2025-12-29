@@ -66,7 +66,9 @@ class ROSBridgeClient:
         while attempt < max_retries:
             attempt += 1
             try:
-                self.ws = ws_connect(self.uri, open_timeout=5)
+                # Disable keepalive pings (ping_interval=None) to avoid 1011 errors
+                # if the bridge is slow or doesn't support pings correctly.
+                self.ws = ws_connect(self.uri, open_timeout=5, ping_interval=None)
                 self.connected = True
                 
                 # Lit le message de bienvenue
@@ -135,6 +137,7 @@ class ROSBridgeClient:
         # Format message correspondant aux attentes de safety_bridge.py
         message = {
             "type": "cmd_vel",
+            "robot_id": robot_id,
             "linear_x": round(v, 4),
             "angular_z": round(omega, 4),
             "timestamp": time.time()

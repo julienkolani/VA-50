@@ -10,6 +10,8 @@ physical:
 velocity_limits:
   max_linear_mps: 0.22 # Max linear velocity (m/s)
   max_angular_radps: 2.84 # Max angular velocity (rad/s)
+  # On limite la marche arrière pour éviter qu'il ne grimpe aux murs
+  min_linear_mps: -0.05
 
 acceleration_limits:
   max_linear_accel: 0.5 # m/s²
@@ -18,11 +20,11 @@ acceleration_limits:
 control:
   # Trajectory following parameters
   lookahead_distance_m: 0.3
-  k_velocity: 0.5 # Linear velocity gain
-  k_theta: 0.5 # Angular velocity gain
+  k_velocity: 1.0  # Linear velocity gain (augmenté pour suivi réactif)
+  k_theta: 2.0     # Angular velocity gain (permet rotation rapide vers waypoints)
   waypoint_threshold_m: 0.1 # Distance to consider waypoint reached
 
 ros_bridge:
-  host: "localhost"
+  host: "127.0.0.1"
   port: 8765 # Must match safety_bridge WebSocket port
   timeout_s: 1.0

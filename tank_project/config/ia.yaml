@@ -1,10 +1,10 @@
 # AI Configuration
 
 behavior:
-  # Threat assessment thresholds
-  danger_distance_m: 0.8 # Enemy too close threshold
-  optimal_range_min_m: 1.2 # Min optimal firing range
-  optimal_range_max_m: 3.5 # Max optimal firing range
+  # Threat assessment thresholds (adaptés à une arène de 2.5m x 1.8m)
+  danger_distance_m: 0.4         # Ennemi trop proche (40cm)
+  optimal_range_min_m: 0.6       # Portée min tir optimale (60cm)
+  optimal_range_max_m: 1.8       # Portée max tir optimale (1.8m = largeur arène)
 
   # Behavior priorities
   survival_priority: true # Retreat overrides attack
@@ -26,4 +26,4 @@ strategy:
 
 decision_rate:
   # How often to replan (in ticks)
-  replan_interval: 10 # Replan every 10 ticks (~0.33s at 30fps)
+  replan_interval: 20 # Replan every 20 ticks (~0.66s at 30fps)

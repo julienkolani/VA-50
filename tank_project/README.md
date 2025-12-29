@@ -8,14 +8,14 @@ Moteur de jeu principal pour Tank Arena avec IA comportementale, vision par ordi
 tank_project/
 ├── config/              # Configuration YAML
 ├── core/
-│   ├── control/         # Cinématique, trajectoire, ROS bridge
-│   ├── game/            # GameEngine, Raycast, Hits
-│   ├── ia/              # Behavior Tree, A*, Decisions
-│   └── world/           # WorldModel, OccupancyGrid
+│   ├── control/         # Cinématique, trajectoire, pont ROS
+│   ├── game/            # Moteur de Jeu, Raycast, Gestion des touches
+│   ├── ia/              # Arbre de comportement, A*, Décisions
+│   └── world/           # Modèle du Monde, Grille d'occupation
 ├── perception/
 │   ├── calibration/     # Calibration arène/projecteur
 │   └── camera/          # ArUco, Kalman, RealSense
-├── visualization/       # Pygame renderer, HUD
+├── visualization/       # Rendu Pygame, HUD
 └── scripts/
     └── run_game.py      # Point d'entrée
 ```

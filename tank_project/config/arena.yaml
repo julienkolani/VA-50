@@ -1,32 +1,38 @@
+# =============================================================================
+# Configuration Arène - Tank Arena
+# =============================================================================
+# Dimensions physiques de l'arène.
+# Note: Les dimensions réelles sont calculées automatiquement par la calibration.
+# Ces valeurs sont des fallback si la calibration n'est pas disponible.
+
 arena:
-  height_m: 0.80
-  width_m: 0.80
-display:
-  display_index: 0
-  fullscreen: false
+  # Dimensions de l'arène en mètres (fallback si pas de calibration)
+  # Ces valeurs seront remplacées par celles calculées par la calibration
+  width_m: 2.50
+  height_m: 1.80
+
+# Grille d'occupation pour le pathfinding
 grid:
-  resolution_m: 0.02 # 2 cm par cellule
+  resolution_m: 0.02  # 2 cm par cellule
+
+# Propriétés physiques du robot
 robot:
-  # Rayon physique du robot (Turtlebot Burger ~9cm)
-  radius_m: 0.09
-  # Marge de sécurité supplémentaire pour ne pas frotter les murs
-  inflation_margin_m: 0.05
+  radius_m: 0.09              # Rayon physique Turtlebot Burger (~9cm)
+  inflation_margin_m: 0.05    # Marge de sécurité supplémentaire
+
+# Obstacles statiques (définis manuellement ou par calibration)
 obstacles: []
-projector:
-  height: 960
-  margin: 50
-  margin_px: 50
-  width: 1280
-transform:
-  H_C2W:
-    - - -0.0010267945196526461
-      - -3.730098981565071e-05
-      - 1.5189658207743262
-    - - -3.418757045764291e-05
-      - 0.0015329706593207066
-      - -0.5017419121719356
-    - - -9.992942953194014e-07
-      - 2.247742515662756e-05
-      - 1.0
-  scale: 0.5720342439860417
-  scale_m_per_av: 0.5720342439860417
+
+# =============================================================================
+# SECTION OBSOLÈTE - SUPPRIMÉE
+# =============================================================================
+# Les sections suivantes ont été supprimées car maintenant gérées par:
+# - calibration.npz : Matrice H_CamToProj (homographie directe)
+# - calibration_meta.json : Échelle (pixels_per_meter) et métadonnées
+# - projector.yaml : Configuration du projecteur
+#
+# Anciennes clés supprimées:
+# - display (déplacé vers projector.yaml)
+# - projector (déplacé vers projector.yaml)  
+# - transform.H_C2W (remplacé par H_CamToProj dans calibration.npz)
+# - transform.scale (remplacé par pixels_per_meter dans calibration_meta.json)

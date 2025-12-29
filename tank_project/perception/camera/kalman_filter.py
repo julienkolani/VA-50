@@ -43,9 +43,14 @@ class KalmanFilter:
         # Bruit de mesure
         self.R = np.diag([0.05, 0.05, 0.1])  # [x, y, theta]
         
-    def predict(self):
+    def predict(self, dt: float = None):
         """
         Étape de prédiction : propage l'état vers l'avant.
+        
+        Args:
+            dt: Pas de temps en secondes. Si None, utilise self.dt.
+                IMPORTANT: Pour une précision optimale, passez le vrai
+                temps écoulé depuis le dernier appel à predict().
         
         Transition d'état :
             x += vx * dt
@@ -55,6 +60,10 @@ class KalmanFilter:
             theta += omega * dt
             omega (constant)
         """
+        # Utilise le dt passé ou le dt par défaut
+        if dt is not None:
+            self.dt = dt
+        
         # Matrice de transition d'état
         F = np.array([
             [1, 0, self.dt, 0, 0, 0],

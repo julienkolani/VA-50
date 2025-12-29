@@ -59,7 +59,8 @@ class Raycast:
         dy = np.sin(theta)
         
         # Parcours de grille
-        current_dist = 0.0
+        # FIX: Commencer 20cm devant pour sortir du robot
+        current_dist = 0.20
         step_size = self.grid.resolution
         
         # Vérifie chaque point le long du rayon

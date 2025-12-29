@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Check Homography & Grid - Outil de Validation Visuelle (CORRIGÉ)
+Outil de Validation Grille & Homographie (CORRIGÉ)
 
-Cet outil permet de vérifier la correspondance entre le Monde Réel et le Monde Virtuel.
-Il utilise la configuration du projecteur pour s'afficher exactement comme le jeu.
+Utilise STRICTEMENT la calibration unifiée (UnifiedTransform) pour l'affichage.
+Garantit que l'affichage correspond exactement à ce que l'IA "voit".
 
 Commandes :
     [D]   : Basculer l'affichage de l'Inflation (Costmap / Grille brute)
@@ -11,11 +11,11 @@ Commandes :
 """
 
 import sys
-import os  # Ajouté pour SDL hack
+import os
 import yaml
 import pygame
 import numpy as np
-import cv2 # Import nécessaire pour undistort
+import cv2
 from pathlib import Path
 
 # Ajout du chemin racine pour les imports
@@ -24,199 +24,174 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from perception.camera.realsense_stream import RealSenseStream
 from perception.camera.aruco_detector import ArucoDetector
 from core.world.world_model import WorldModel
-from core.world.coordinate_frames import TransformManager
+from core.world.unified_transform import UnifiedTransform, load_calibration
 
 # Couleurs
-C_BG = (10, 10, 15)
-C_GRID = (40, 40, 50)
+C_BG = (0, 0, 0)                 # Noir pur pour le projecteur
+C_GRID = (50, 50, 50)            # Gris foncé
 C_OBSTACLE = (200, 50, 50)       # Rouge (Mur physique)
 C_INFLATION = (200, 100, 0)      # Orange (Zone de danger)
-C_MARKER = (0, 255, 255)         # Cyan (Position calculée du marqueur)
-C_THEORY = (0, 255, 0)           # Vert (Coins théoriques)
+C_MARKER = (0, 255, 255)         # Cyan (Position détectée)
 C_TEXT = (255, 255, 255)
 
-def load_config():
-    """Charge les configurations nécessaires."""
+def load_projector_config():
+    """Charge la config projecteur pour la fenêtre."""
     config_dir = Path(__file__).parent.parent / 'config'
-    configs = {}
-    for name in ['arena', 'camera', 'robot', 'projector']:
-        path = config_dir / f'{name}.yaml'
-        if path.exists():
-            with open(path) as f:
-                configs[name] = yaml.safe_load(f)
-    return configs
+    path = config_dir / 'projector.yaml'
+    if path.exists():
+        with open(path) as f:
+            return yaml.safe_load(f)
+    return None
 
 def main():
     print("[CHECK] Démarrage validation Homographie...")
 
-    # 1. Configs
-    configs = load_config()
-    if 'arena' not in configs:
-        print("[CHECK] ERREUR: Config arena.yaml manquante. Lancez la calibration.")
+    # 1. Chargement Calibration (CRITIQUE)
+    config_dir = Path(__file__).parent.parent / 'config'
+    transform_mgr = load_calibration(str(config_dir))
+    
+    if not transform_mgr.is_calibrated():
+        print("\n[ERREUR CRITIQUE] Aucune calibration trouvée !")
+        print("Veuillez lancer : python -m perception.calibration.standalone_wizard")
         return
 
-    # --- CONFIGURATION AFFICHAGE (Mise à jour pour projecteur) ---
-    if 'projector' in configs:
-        proj_conf = configs['projector']['projector']
-        disp_conf = configs['projector']['display']
-        
-        win_w = proj_conf['width']
-        win_h = proj_conf['height']
-        margin = proj_conf['margin_px']
-        
-        monitor_x = disp_conf.get('monitor_offset_x', 0)
-        monitor_y = disp_conf.get('monitor_offset_y', 0)
-        
-        print(f"[CHECK] Mode Projecteur : {win_w}x{win_h} (Offset: {monitor_x},{monitor_y})")
+    print(f"[CHECK] Calibration chargée : {transform_mgr.pixels_per_meter:.2f} px/m")
+
+    # 2. Configuration Affichage (Depuis calibration ou projector.yaml)
+    proj_conf = load_projector_config()
+    
+    if proj_conf:
+        win_w = proj_conf['projector']['width']
+        win_h = proj_conf['projector']['height']
+        off_x = proj_conf['display'].get('monitor_offset_x', 0)
+        off_y = proj_conf['display'].get('monitor_offset_y', 0)
     else:
-        # Fallback si pas de projector.yaml (mode fenêtre simple sur PC)
-        print("[CHECK] Mode Fenêtré (projector.yaml introuvable)")
-        win_w, win_h = 1024, 768
-        margin = 50
-        monitor_x, monitor_y = 0, 0
+        # Fallback sur les données de calibration
+        win_w = transform_mgr.proj_width
+        win_h = transform_mgr.proj_height
+        off_x, off_y = 1920, 0 # Valeur par défaut courante
 
-    # 2. Vision
-    cam_cfg = configs['camera'].get('realsense', {})
-    camera = RealSenseStream(width=848, height=480, fps=60) 
-    camera.start()
-    
-    # Attente pipeline (Safety)
-    import time
-    time.sleep(1.0)
-    
-    # --- CORRECTION DISTORSION ---
-    # Récupération des paramètres intrinsèques
-    K, D = camera.get_intrinsics_matrix()
-    if K is not None:
-        print("[CHECK] Correction de distorsion activée")
-    else:
-        print("[CHECK] Pas de correction de distorsion (Intrinsics non trouvés)")
-
-    aruco = ArucoDetector()
-    
-    transform_mgr = TransformManager()
-    if 'transform' in configs['arena'] and 'H_C2W' in configs['arena']['transform']:
-        transform_mgr.H_C2W = np.array(configs['arena']['transform']['H_C2W'])
-    else:
-        print("[CHECK] ERREUR: Pas de matrice H_C2W dans arena.yaml")
-        camera.stop()
-        return
-
-    # 3. World (pour l'inflation)
-    arena_stats = configs['arena']['arena']
-    robot_radius = configs['arena'].get('robot', {}).get('radius_m', 0.09)
-    inflation_margin = 0.05
-    
-    world = WorldModel(
-        arena_width_m=arena_stats['width_m'],
-        arena_height_m=arena_stats['height_m'],
-        grid_resolution_m=configs['arena']['grid']['resolution_m'],
-        robot_radius_m=robot_radius,
-        inflation_margin_m=inflation_margin
-    )
-    world.generate_costmap()
-
-    # 4. Pygame Setup (Avec SDL Hack)
-    # On force la position AVANT d'initier l'écran
-    if monitor_x != 0 or monitor_y != 0:
-        os.environ['SDL_VIDEO_WINDOW_POS'] = f"{monitor_x},{monitor_y}"
+    # Force la position de la fenêtre (SDL Hack)
+    os.environ['SDL_VIDEO_WINDOW_POS'] = f"{off_x},{off_y}"
     
     pygame.init()
-    
-    # On utilise RESIZABLE pour la stabilité, comme dans run_game
-    screen = pygame.display.set_mode((win_w, win_h), pygame.RESIZABLE)
-    pygame.display.set_caption("Calibration Check - [D] Toggle Inflation")
-    font = pygame.font.SysFont("Consolas", 18)
+    screen = pygame.display.set_mode((win_w, win_h), pygame.NOFRAME | pygame.DOUBLEBUF)
+    pygame.display.set_caption("Calibration Check")
+    font = pygame.font.SysFont("Consolas", 24, bold=True)
 
-    # --- CALCUL D'ÉCHELLE (Doit être identique à PygameRenderer) ---
-    draw_w = win_w - 2 * margin
-    draw_h = win_h - 2 * margin
-    
-    scale_x = draw_w / world.arena_width
-    scale_y = draw_h / world.arena_height
-    scale = min(scale_x, scale_y) # Conserver aspect ratio
+    # 3. Vision
+    print("[CHECK] Démarrage caméra...")
+    # On récupère les dimensions depuis la config si possible, sinon défaut
+    camera = RealSenseStream(width=1280, height=720, fps=30) 
+    camera.start()
+    import time; time.sleep(1.0) # Warmup
 
-    def to_screen(x_m, y_m):
-        """Convertit mètres -> pixels en respectant les marges du projecteur."""
-        px = margin + int(x_m * scale)
-        py = margin + int((world.arena_height - y_m) * scale) # Inversion Y classique
-        return px, py
+    # Paramètres intrinsèques pour Undistort
+    K, D = camera.get_intrinsics_matrix()
+    aruco = ArucoDetector()
+
+    # 4. World Model (Pour l'inflation)
+    # On utilise les dimensions exactes calculées par la calibration
+    world = WorldModel(
+        arena_width_m=transform_mgr.arena_width_m,
+        arena_height_m=transform_mgr.arena_height_m,
+        grid_resolution_m=0.02, # 2cm
+        robot_radius_m=0.15,    # Ajuster selon votre robot (30cm diamètre = 0.15 rayon)
+        inflation_margin_m=0.05
+    )
+    world.generate_costmap()
 
     # Boucle Principale
     running = True
     show_inflation = False
+    clock = pygame.time.Clock()
 
     try:
         while running:
+            # Events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT: running = False
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE: running = False
                     elif event.key == pygame.K_d: show_inflation = not show_inflation
 
-            # Vision
+            # 1. Acquisition Image
             color_frame, _ = camera.get_frames()
-            
-            # --- APPLICATION UNDISTORT ---
-            if K is not None and D is not None and color_frame is not None:
+            if color_frame is None: continue
+
+            # 2. Correction Distorsion (CRITIQUE pour l'alignement sur les bords)
+            if K is not None and D is not None:
                 color_frame = cv2.undistort(color_frame, K, D)
-                
-            detections = aruco.detect(color_frame) if color_frame is not None else {}
 
-            # Rendu Fond
+            # 3. Détection
+            detections = aruco.detect(color_frame)
+
+            # 4. Rendu
             screen.fill(C_BG)
-            
-            # Grille 10cm
-            for x in np.arange(0, world.arena_width, 0.1):
-                p1 = to_screen(x, 0); p2 = to_screen(x, world.arena_height)
-                pygame.draw.line(screen, C_GRID, p1, p2, 1)
-            for y in np.arange(0, world.arena_height, 0.1):
-                p1 = to_screen(0, y); p2 = to_screen(world.arena_width, y)
-                pygame.draw.line(screen, C_GRID, p1, p2, 1)
 
-            # Obstacles
-            grid_data = world.grid.costmap if (show_inflation and hasattr(world.grid, 'costmap')) else world.grid.grid
+            # --- A. DESSIN DE LA GRILLE (Via UnifiedTransform) ---
+            # On dessine une grille tous les 10cm pour vérifier l'échelle
+            step_m = 0.10 
             
-            # Optimisation: affichage sparse
-            occupied_indices = np.argwhere(grid_data > 0.5)
-            cell_size_px = int(world.grid.resolution * scale) + 1
-            
-            for r, c in occupied_indices:
-                xm, ym = world.grid.grid_to_world(r, c)
-                sx, sy = to_screen(xm, ym)
-                # Centrer le rectangle sur le point
-                rect = pygame.Rect(sx - cell_size_px//2, sy - cell_size_px//2, cell_size_px, cell_size_px)
-                pygame.draw.rect(screen, C_INFLATION if show_inflation else C_OBSTACLE, rect)
+            # Lignes Verticales
+            for x in np.arange(0, world.arena_width, step_m):
+                # On utilise world_to_projector qui utilise la matrice exacte
+                start_px = transform_mgr.world_to_projector(x, 0)
+                end_px = transform_mgr.world_to_projector(x, world.arena_height)
+                pygame.draw.line(screen, C_GRID, start_px, end_px, 1)
 
-            # Coins Théoriques (Vert) - Pour vérifier l'alignement physique
-            corners = [(0,0), (world.arena_width,0), (world.arena_width, world.arena_height), (0, world.arena_height)]
-            for cx, cy in corners:
-                pygame.draw.circle(screen, C_THEORY, to_screen(cx, cy), 10, 2)
+            # Lignes Horizontales
+            for y in np.arange(0, world.arena_height, step_m):
+                start_px = transform_mgr.world_to_projector(0, y)
+                end_px = transform_mgr.world_to_projector(world.arena_width, y)
+                pygame.draw.line(screen, C_GRID, start_px, end_px, 1)
 
-            # ArUco Live (Cyan)
+            # --- B. DESSIN DES OBSTACLES (Inflation) ---
+            # On n'affiche que si demandé (touche D) pour garder la grille claire
+            if show_inflation:
+                grid_data = world.grid.costmap
+                # Optimisation : trouver les indices occupés
+                occ_y, occ_x = np.where(grid_data > 0.5)
+                
+                # Taille d'une cellule en pixels (environ)
+                cell_px = int(world.grid.resolution * transform_mgr.pixels_per_meter)
+                
+                for r, c in zip(occ_y, occ_x):
+                    # Conversion Grille -> Monde -> Pixels Projecteur
+                    xm, ym = world.grid.grid_to_world(r, c)
+                    px, py = transform_mgr.world_to_projector(xm, ym)
+                    
+                    rect = pygame.Rect(px - cell_px//2, py - cell_px//2, cell_px, cell_px)
+                    pygame.draw.rect(screen, C_INFLATION, rect)
+
+            # --- C. DESSIN DES ARUCO EN TEMPS RÉEL (Le Test Ultime) ---
             for mid, data in detections.items():
-                u, v = data['center']
-                # Transformation Homographique
-                xm, ym = transform_mgr.camera_to_world(u, v)
-                sx, sy = to_screen(xm, ym)
+                u, v = data['center'] # Pixels Caméra
                 
-                # Dessin cible
-                pygame.draw.circle(screen, C_MARKER, (sx, sy), 8, 2)
-                pygame.draw.line(screen, C_MARKER, (sx-10, sy), (sx+10, sy), 1)
-                pygame.draw.line(screen, C_MARKER, (sx, sy-10), (sx, sy+10), 1)
+                # Transformation : Caméra -> Projecteur (Directe via Homographie)
+                proj_x, proj_y = transform_mgr.camera_to_projector(u, v)
                 
-                lbl = font.render(f"ID {mid}", True, C_TEXT)
-                screen.blit(lbl, (sx+12, sy-10))
+                # Dessin Cible
+                # Si la calibration est bonne, ce cercle cyan doit être PILE SUR le robot réel
+                center = (int(proj_x), int(proj_y))
+                pygame.draw.circle(screen, C_MARKER, center, 10, 2)
+                pygame.draw.line(screen, C_MARKER, (center[0]-15, center[1]), (center[0]+15, center[1]), 2)
+                pygame.draw.line(screen, C_MARKER, (center[0], center[1]-15), (center[0], center[1]+15), 2)
+                
+                # Label ID
+                lbl = font.render(f"ID:{mid}", True, C_TEXT)
+                screen.blit(lbl, (center[0]+15, center[1]-15))
 
-            # UI Text
-            mode_txt = "COSTMAP (GONFLÉE)" if show_inflation else "OBSTACLES BRUTS"
-            dist_txt = " + DISTORTION FIX" if K is not None else ""
-            ui = font.render(f"[D] Vue: {mode_txt}{dist_txt}", True, (0, 255, 0))
-            screen.blit(ui, (10, 10))
+            # UI Info
+            mode = "COSTMAP" if show_inflation else "GRILLE"
+            info = f"[ESC] Quitter | [D] Mode: {mode} | Scale: {transform_mgr.pixels_per_meter:.1f} px/m"
+            screen.blit(font.render(info, True, (0, 255, 0)), (20, 20))
 
             pygame.display.flip()
+            clock.tick(60)
 
-    except KeyboardInterrupt: pass
+    except KeyboardInterrupt:
+        pass
     finally:
         camera.stop()
         pygame.quit()
