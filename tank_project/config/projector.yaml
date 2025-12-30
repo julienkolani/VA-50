@@ -1,40 +1,21 @@
-# =============================================================================
-# Configuration Projecteur - Tank Arena
-# =============================================================================
-# Modifier ces valeurs selon votre setup matériel
-
 projector:
-  # Résolution du projecteur VGA
   width: 1024
   height: 768
-
-  # Marge de sécurité (pixels depuis le bord)
-  margin_px: 50
-
-# Configuration multi-écran
+  
 display:
-  # Offset X = largeur de l'écran principal (ex: 1920 pour Full HD)
   monitor_offset_x: 1920
-  monitor_offset_y: 0
-
-  # Mode sans bordure: supprime la barre de titre et les bordures
-  # true = fenêtre propre pour projection (recommandé prod)
-  # false = fenêtre normale avec barre titre (utile pour debug)
   borderless: true
+  fullscreen: false
 
-  # Cacher le curseur souris dans la fenêtre projetée
-  # true = pas de flèche visible sur l'arène (recommandé prod)
-  # false = curseur visible (utile pour debug)
-  hide_cursor: true
-
-# Calibration métrique
-calibration:
-  # Taille réelle du marqueur ArUco en mètres
-  marker_size_m: 0.10
-
-  # IDs des marqueurs
-  corner_marker_ids: [0, 1, 2, 3] # Coins projetés
-  robot_marker_ids: [4, 5] # Marqueurs robot
-
-  # Dictionnaire ArUco utilisé
-  aruco_dictionary: "DICT_4X4_100"
+visuals:
+  projectile_speed_px_s: 800.0  # Vitesse du projectile en pixels/seconde
+  
+  colors:
+    background: [10, 10, 20]
+    grid: [30, 30, 50]
+    ai: [0, 150, 255]
+    human: [255, 50, 0]
+    hitbox: [255, 255, 0]
+    
+  hitbox:
+    radius_m: 0.15 # Doit correspondre à game.yaml/shooting/hit_radius

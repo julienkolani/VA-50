@@ -16,6 +16,11 @@ setup(
         ('share/' + package_name + '/launch', [
             'launch/safety_bridge.launch.py',
         ]),
+        
+        # Config files
+        ('share/' + package_name + '/config', [
+            'config/safety_config.py',
+        ]),
     ],
     install_requires=[
         'setuptools',
@@ -27,7 +32,6 @@ setup(
     maintainer_email='projetva50@utbm.edu',
     description='Modules de jeu TurtleBot + Safety Bridge WebSocket pour VA50 UTBM',
     license='MIT',
-    tests_require=['pytest'],
     
     entry_points={
         'console_scripts': [

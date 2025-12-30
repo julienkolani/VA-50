@@ -27,69 +27,82 @@ class TrajectoryFollower:
         # État interne pour hystérésis d'alignement
         self._in_alignment_mode = False
         
-        # Paramètres
-        self.lookahead_distance = config.get('lookahead_distance_m', config.get('lookahead_distance', 0.15))
-        self.k_v = config.get('k_velocity', config.get('k_v', 0.6))
+        # Support pour ancienne (flat) et nouvelle (nested) structure
+        # Nouvelle structure : config est le dict 'control' complet
         
-        # Limites de vitesse
-        max_lin = config.get('max_linear_mps', config.get('max_linear_vel', 0.22))
-        max_ang = config.get('max_angular_radps', config.get('max_angular_vel', 1.2))
+        # 1. PARAMÈTRES DE BASE (Pure Pursuit)
+        self.lookahead_distance = config.get('lookahead_distance', 0.15)
+        self.k_v = config.get('k_v', 0.6)
+        
+        # 2. LIMITES
+        limits = config.get('limits', {})
+        # Retour aux clés plates si le dictionnaire 'limits' est manquant
+        max_lin = limits.get('max_linear_vel', config.get('max_linear_vel', 0.22))
+        max_ang = limits.get('max_angular_vel', config.get('max_angular_vel', 1.2))
         
         self.max_linear_vel = float(max_lin)
         self.max_angular_vel = float(max_ang)
         
-        # Seuil waypoint atteint
-        self.waypoint_reached_threshold = config.get('waypoint_threshold_m', config.get('waypoint_threshold', 0.07))
+        # 3. ALIGNEMENT (Rotation sur place)
+        align = config.get('alignment', {})
+        self.align_threshold = math.radians(align.get('threshold_angle', 45.0))
+        self.align_hysteresis = math.radians(align.get('hysteresis_angle', 10.0))
+        self.gain_omega_align = align.get('gain_omega', 1.2)
+        
+        # 4. APPROCHE FINALE (Douceur)
+        final = config.get('final_approach', {})
+        self.final_gain_v = final.get('gain_v', 0.4)
+        self.final_gain_omega = final.get('gain_omega', 1.0)
+        
+        # 5. PRÉCISION
+        eps = config.get('epsilon', {})
+        self.waypoint_reached_threshold = eps.get('waypoint_threshold', config.get('waypoint_threshold', 0.07))
     
     def compute_control(self, current_pose: Tuple[float, float, float], waypoints: List[Tuple[float, float]]) -> Tuple[float, float]:
         """
-        Calcule les commandes de contrôle pour suivre les waypoints.
+        Calcule les commandes de contrôle (v, omega) basées sur l'état actuel.
         
-        Machine d'état simplifiée :
-        1. Trouver le point lookahead
-        2. Aligner sur ce point (si > 45°)
-        3. Approche finale (si < 2 waypoints restants)
-        4. Pure Pursuit sinon
-        
-        Args:
-            current_pose: (x, y, theta) pose actuelle du robot
-            waypoints: Liste de waypoints (x, y) en mètres
-            
-        Returns:
-            (v, omega): vitesses linéaire et angulaire
+        Implémente la Machine à États Hybride :
+        1. Trouver le Point Lookahead.
+        2. Calculer l'Erreur de Cap Locale (Alpha).
+        3. Vérifier le Mode Alignement (Le Fix pour le bug 180°).
+        4. Vérifier l'Approche Finale (Précision).
+        5. Exécuter Pure Pursuit.
         """
         if not waypoints:
             return (0.0, 0.0)
         
         x, y, theta = current_pose
         
-        # 1. Trouver le point à viser (Lookahead)
+        # 1. Trouve le point cible (Lookahead)
         target_wp = self._get_lookahead_point(current_pose, waypoints)
         dx = target_wp[0] - x
         dy = target_wp[1] - y
         dist_to_target = math.sqrt(dx**2 + dy**2)
         
-        # 2. Alpha calculé sur la CIBLE LOCALE (lookahead), pas sur le goal final
+        # 2. Alpha calculé sur la CIBLE LOCALE (lookahead), pas le but final
         angle_to_target = math.atan2(dy, dx)
         alpha = (angle_to_target - theta + math.pi) % (2 * math.pi) - math.pi
         
-        # 3. État ALIGNEMENT (Hystérésis sur cible locale)
-        if not self._in_alignment_mode and abs(alpha) > math.radians(45):
+        # 3. ÉTAT ALIGNEMENT (Hystérésis - Fix Historique pour le spin 180)
+        # Si on tourne le dos à la cible : STOP et Rotation.
+        if not self._in_alignment_mode and abs(alpha) > self.align_threshold:
             self._in_alignment_mode = True
-        elif self._in_alignment_mode and abs(alpha) < math.radians(10):
+        elif self._in_alignment_mode and abs(alpha) < self.align_hysteresis:
             self._in_alignment_mode = False
         
         if self._in_alignment_mode:
-            v = 0.0
-            omega = -(1.2 * alpha)  # Signe inversé pour hardware
+            v = 0.0 # Stop mouvement linéaire
+            omega = -(self.gain_omega_align * alpha)  # Pivoter pour faire face
             omega_sat = np.clip(omega, -self.max_angular_vel, self.max_angular_vel)
-            print(f"[CTRL] ALIGNMENT | alpha={math.degrees(alpha):.1f}° → ω={omega_sat:.3f}")
+            # Log pour débuguer l'hystérésis
+            print(f"[CTRL] ALIGNEMENT | alpha={math.degrees(alpha):.1f}° → ω={omega_sat:.3f}")
             return (v, omega_sat)
         
         # 4. Approche finale (seulement s'il reste <= 2 points)
         if dist_to_target < self.lookahead_distance and len(waypoints) <= 2:
-            v = 0.4 * dist_to_target
-            omega = -(1.0 * alpha)
+            v = self.final_gain_v * dist_to_target
+            omega = -(self.final_gain_omega * alpha)
             v_sat = np.clip(v, 0, self.max_linear_vel)
             omega_sat = np.clip(omega, -self.max_angular_vel, self.max_angular_vel)
             print(f"[CTRL] FINAL_APPROACH | dist={dist_to_target:.3f}m alpha={math.degrees(alpha):.1f}° → v={v_sat:.3f} ω={omega_sat:.3f}")

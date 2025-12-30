@@ -1,20 +1,13 @@
-# Game Rules Configuration
+game:
+  mode: "DEATHMATCH"
+  duration: 180         # Durée de la partie en secondes (3 min)
+  
+  shooting:
+    cooldown: 1.0       # Temps d'attente entre deux tirs (secondes)
+    max_range: 10.0     # Portée maximale du tir (mètres)
+    hit_radius: 0.15    # Rayon de la hitbox autour du robot (mètres) - UTILISÉ PAR L'ARBITRE
 
-match:
-  duration_seconds: 180 # 3 minutes
-  tick_rate_fps: 30 # Game loop frequency
-
-cooldowns:
-  # Cooldowns équilibrés pour un gameplay juste
-  human_shot_seconds: 4.0   # Humain peut tirer toutes les 4 secondes
-  ai_shot_seconds: 4.0      # IA peut tirer toutes les 4 secondes
-
-win_conditions:
-  max_hits: 10 # First to 10 hits wins
-  time_limit: true # Game ends when time expires
-  sudden_death: false # Continue after time expires if tied?
-
-shot_mechanics:
-  range_m: 5.0 # Maximum shot range
-  speed_mps: 10.0 # Shot travel speed (for animation)
-  instant_hit: true # Hitscan vs projectile
+  mock:
+    # Positions de départ pour le mode simulation
+    ai_start_pos: [0.2, 0.5, 0.0]   # x%, y%, theta (relative to arena instructions in Manager)
+    human_start_pos: [0.8, 0.5, 3.14] 

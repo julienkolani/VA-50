@@ -1,29 +1,33 @@
-# Robot Configuration (Turtlebot Burger)
+robot:
+  radius_m: 0.09        # Rayon physique du robot
+  inflation_margin_m: 0.05 # Marge de sécurité obstacle
 
-kinematics:
-  wheel_base_m: 0.16 # Distance between wheels
-  wheel_radius_m: 0.033 # Wheel radius
+  control:
+    # --- PURE PURSUIT (Suivi de chemin) ---
+    lookahead_distance: 0.15      # Distance de visée sur le chemin (m)
+    k_v: 0.6                      # Gain proportionnel vitesse linéaire (v = k_v * sqrt(erreur))
+    
+    # --- LIMITES PHYSIQUES / SECURITÉ ---
+    limits:
+      max_linear_vel: 0.22        # Vitesse linéaire maximale (m/s)
+      max_angular_vel: 1.2        # Vitesse angulaire maximale (rad/s)
+      
+    # --- ALIGNEMENT SUR PLACE (Rotation pure) ---
+    alignment:
+      threshold_angle: 45.0       # Erreur angulaire (deg) déclenchant la rotation sur place
+      hysteresis_angle: 10.0      # Erreur angulaire (deg) pour sortir du mode rotation
+      gain_omega: 1.2             # Gain proportionnel pour la rotation (omega = -gain * erreur)
+      
+    # --- APPROCHE FINALE (Arrivée au but) ---
+    final_approach:
+      activation_dist: 0.15       # Distance (m) ou nb de points restants pour activer l'approche fine
+      gain_v: 0.4                 # Gain réduit pour l'approche douce
+      gain_omega: 1.0             # Gain angulaire pour l'ajustement final
+      
+    # --- PRÉCISION ---
+    epsilon:
+      waypoint_threshold: 0.03    # Distance (m) pour considérer un waypoint comme atteint
 
-physical:
-  robot_radius_m: 0.09 # Approximation as circle
-
-velocity_limits:
-  max_linear_mps: 0.20 # Réduit pour stabilité ArUco
-  max_angular_radps: 1.0 # Crucial : ne pas dépasser 1.0 pour la stabilité ArUco
-  # On limite la marche arrière pour éviter qu'il ne grimpe aux murs
-  min_linear_mps: -0.05
-
-acceleration_limits:
-  max_linear_accel: 0.5 # m/s²
-  max_angular_accel: 5.0 # rad/s²
-
-control:
-  # Trajectory following parameters
-  lookahead_distance_m: 0.15  # Réduit pour laisser Pure Pursuit guider
-  k_velocity: 0.15  # Linear velocity gain
-  waypoint_threshold_m: 0.05 # Distance to consider waypoint reached
-
-ros_bridge:
-  host: "127.0.0.1"
-  port: 8765 # Must match safety_bridge WebSocket port
-  timeout_s: 1.0
+  ros_bridge:
+    host: "127.0.0.1"
+    port: 8765

@@ -1,0 +1,153 @@
+➜  ros2_ws history                                                                
+    1  ls
+    2  ros2 node list
+    3  ros2 topic list
+    4  sudo apt update &&  sudo apt install iputils-ping  iproute2 -y     
+    5  source /opt/ros/humble/setup.zsh
+    6  ros2 topic list
+    7  ros2 node list
+    8  ping 192.168.100.1
+    9  echo $ROS_DOMAIN_ID
+   10  ifconfig
+   11  ip a
+   12  ping 192.168.100.1
+   13  ros2 topic 
+   14  ros2 topic list
+   15  ping 192.168.50.1
+   16  ros2 topic list
+   17  ros2 node list
+   18  ls
+   19  cd TP/TP1
+   20  ls
+   21  cd safe_zone_cpp
+   22  ros2 node list
+   23  ros2 run safe_zone_cpp safe_zone_node\nros2 topic echo /safe\n
+   24  source install/setup.zsh
+   25  ros2 run safe_zone_cpp safe_zone_node\nros2 topic echo /safe\n
+   26  colcon build --packages-select safe_zone_cpp\nsource install/setup.zsh
+   27  ros2 run safe_zone_cpp safe_zone_node\nros2 topic echo /safe\n
+   28  ls
+   29  tree -L 3
+   30  tree -L 2
+   31  colcon build --packages-select safe_zone_cpp\nsource install/setup.zsh
+   32  ros2 node list
+   33  cat src/safe_zone_node.cpp
+   34  colcon build --packages-select safe_zone_cpp\nsource install/setup.zsh
+   35  ros2 node list
+   36  ros2 topic list
+   37  ros2 node list
+   38  ros2 run safe_zone_cpp safe_zone_node\nros2 topic echo /safe\n
+   39  ros2 topic list
+   40  ros2 echo braitenberg_robot /robot_description
+   41  ros2 topic echo braitenberg_robot /robot_description
+   42  ros2 topic echo  /robot_description
+   43  ros2 topic echo  /initialpose
+   44  ros2 topic echo /goal_pose
+   45  ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}"\n
+   46  source install/setup.zsh
+   47  ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}"\n
+   48  ros2 topic list
+   49  ros2 topic info\n
+   50  ros2 topic info /cmd_vel\n
+   51  ros2 topic info --verbose /cmd_vel\n
+   52  ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}"\n
+   53  ros2 run teleop_twist_keyboard teleop_twist_keyboard\n
+   54  source install/setup.zsh
+   55  ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}"\n
+   56  rviz2
+   57  source install/setup.zsh
+   58  ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}" && ros2 topic echo /odo --once\n
+   59  ping google.com
+   60  ufw
+   61  ls
+   62  export ROS_DOMAIN_ID=30
+   63  source /opt/ros/humble/setup.zsh
+   64  ls
+   65  ros2 topic list
+   66  ls
+   67  cd
+   68  ls
+   69  cd ros2_ws
+   70  ls
+   71  tree .
+   72  exit
+   73  ls
+   74  ros2 topic list
+   75  ls
+   76  cd turtlebot3_ws
+   77  ls
+   78  cd src
+   79  ls
+   80  cd ../..
+   81  ls
+   82  cd turtlebot_game
+   83  ls
+   84  cd ..
+   85  ls
+   86  mkdir src
+   87  rm -rf turtlebot3_ws
+   88  sudo rm -rf turtlebot3_ws
+   89  ls
+   90  cat run.sh
+   91  ls
+   92  rm run.sh
+   93  ls
+   94  clear
+   95  ls
+   96  colcon build \nsource install/setup.zsh
+   97  ls
+   98  ls src
+   99  ls
+  100  ls src/turtlebot_game
+  101  colcon build \nsource install/setup.zsh
+  102  ls
+  103  ros2 launch turtlebot_game safety_bridge.launch.py
+  104  ros2 launch turtlebot_game safety_bridge.launch
+  105  ros2 launch turtlebot_game safety_bridge
+  106  ls
+  107  colcon build --packages-select turtlebot_game\n
+  108  ls
+  109  ls braitenberg_ws
+  110  ls
+  111  colcon build --packages-select turtlebot_game\n
+  112  source install/setup.bash\n
+  113  source install/setup.zsh\n
+  114  ros2 launch turtlebot_game safety_bridge.launch.py\n
+  115  colcon build --packages-select turtlebot_game
+  116  colcon build --packages-select turtlebot_game --symlink-install
+  117  source install/setup.zsh
+  118  ros2 launch turtlebot_game safety_bridge.launch.py
+  119  pip list
+  120  pip install websocket
+  121  ros2 launch turtlebot_game safety_bridge.launch.py
+  122  # 1. Installer la bonne librairie\npip install websockets\n\n# 2. Nettoyer le workspace (construits précédents)\ncd ~/ros2_ws  # ou votre dossier racine\nrm -rf build install log\n\n# 3. Reconstruire proprement\ncolcon build --packages-select turtlebot_game --symlink-install\n\n# 4. Sourcer le nouvel environnement\nsource install/setup.zsh\n\n# 5. Lancer\nros2 launch turtlebot_game safety_bridge.launch.py
+  123  ls
+  124  cat docker-compose.yml
+  125  ros2 launch turtlebot_game safety_bridge.launch.py
+  126  ros2 topic list
+  127  export ROS_DOMAIN_ID=30
+  128  source install/setup.zsh
+  129  source /opt/ros/humble/setup.zsh
+  130  ros2 topic list
+  131  ros2 launch turtlebot_game safety_bridge.launch.py
+  132  clear
+  133  ros2 launch turtlebot_game safety_bridge.launch.py
+  134  # Test 1 : Topic avec namespace (ce que tu utilises actuellement)\nros2 topic pub --once /robot1/cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}"
+  135  ros2 topic list
+  136  # Test 2 : Topic standard (sans namespace)\nros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}"
+  137  # Test 2 : Topic standard (sans namespace)\nros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 1, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}"
+  138  ros2 launch turtlebot_game safety_bridge.launch.py
+  139  ros2 launch turtlebot_game safety_bridge.launch.py --ros-args -r /robot1/cmd_vel:=/cmd_vel
+  140  cat src/turtlebot_game/launch/safety_bridge.launch.py
+  141  ros2 launch turtlebot_game safety_bridge.launch.py
+  142  colcon build --packages-select turtlebot_game --symlink-install
+  143  ros2 launch turtlebot_game safety_bridge.launch.py
+  144  clear
+  145  ros2 launch turtlebot_game safety_bridge.launch.py
+  146  clear
+  147  ros2 topic list
+  148  ros2 launch turtlebot_game safety_bridge.launch.py
+  149  clear
+  150  ros2 launch turtlebot_game safety_bridge.launch.py
+➜  ros2_ws 
+

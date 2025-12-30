@@ -1,95 +1,39 @@
 #!/usr/bin/env python3
 """
-"""
-Tank Arena - Point d'Entrée Principal
-
-Point d'entrée unique pour le projet tank arena.
-
-Usage:
-    python3 main.py [mode]
-    
-    Modes:
-    - game        : Lancer le jeu (défaut)
-    - calibration : Lancer l'assistant de calibration
-    - export      : Exporter données debug
-    
-Exemples:
-    python3 main.py
-    python3 main.py game
-    python3 main.py calibration
-    python3 main.py export
-    
-Ou en tant que module:
-    python3 -m tank_project.main
-    cd /home/julien/ros2_ws/src && python3 -m tank_project.main
+Tank Arena - Main Entry Point
+Lance le GameManager qui orchestre:
+- Perception (Realsense/ArUco)
+- IA (Behavior Tree)
+- Rendu (Pygame)
+- Contrôle (ROS Bridge)
 """
 
 import sys
 import argparse
 from pathlib import Path
 
-# Ajouter le répertoire courant au path
-PROJECT_ROOT = Path(__file__).parent
-sys.path.insert(0, str(PROJECT_ROOT))
+# Add project root to path
+ROOT_DIR = Path(__file__).parent.resolve()
+sys.path.insert(0, str(ROOT_DIR))
 
+from core.game.game_manager import GameManager
 
 def main():
-    """Point d'entrée principal."""
-    parser = argparse.ArgumentParser(
-        description='Tank Arena - Système de combat de chars robotiques',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Exemples:
-  %(prog)s                  Lance le jeu
-  %(prog)s game             Lance le jeu
-  %(prog)s calibration      Lance la calibration
-  %(prog)s export           Exporte les données debug
-        """
-    )
-    
-    parser.add_argument(
-        'mode',
-        nargs='?',
-        default='game',
-        choices=['game', 'calibration', 'export'],
-        help='Mode de lancement (défaut: game)'
-    )
-    
+    parser = argparse.ArgumentParser(description="Tank Arena - Unified Game Launcher")
+    parser.add_argument('--mock', action='store_true', help="Force Mock Mode (Simulation sans hardware)")
     args = parser.parse_args()
-    
-    print("=" * 60)
-    print("      TANK ARENA - Système Combat Chars Robotiques")
-    print("=" * 60)
-    print()
-    
-    # Lancer le mode approprié
-    if args.mode == 'calibration':
-        print("[MAIN] Mode: CALIBRATION")
-        print("-" * 60)
-        from perception.calibration.standalone_wizard import main as run_calibration
-        run_calibration()
-        
-    elif args.mode == 'export':
-        print("[MAIN] Mode: EXPORT DEBUG DATA")
-        print("-" * 60)
-        from scripts.export_debug_data import main as run_export
-        run_export()
-        
-    else:  # game
-        print("[MAIN] Mode: GAME")
-        print("-" * 60)
-        from scripts.run_game import main as run_game
-        run_game()
 
-
-if __name__ == '__main__':
+    print("==========================================")
+    print("   TANK ARENA - AUTO MODE INITIALIZED     ")
+    print("==========================================")
+    print(f"Mode: {'MOCK/SIMULATION' if args.mock else 'REAL HARDWARE'}")
+    
     try:
-        main()
-    except KeyboardInterrupt:
-        print("\n[MAIN] Interruption utilisateur (Ctrl+C)")
-        sys.exit(0)
+        game = GameManager(mock=args.mock)
+        game.run()
     except Exception as e:
-        print("\n[MAIN] ERREUR: {}".format(e))
-        import traceback
-        traceback.print_exc()
+        print(f"[MAIN] Critical Error: {e}")
         sys.exit(1)
+
+if __name__ == "__main__":
+    main()

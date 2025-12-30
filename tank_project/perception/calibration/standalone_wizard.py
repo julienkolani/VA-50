@@ -111,7 +111,6 @@ class CalibrationData:
         )
         print(f"[CALIB] Matrices sauvées: {npz_path}")
         
-        
         # 2. Métadonnées → .json
         meta_path = config_path / "calibration_meta.json"
         meta = {
@@ -130,12 +129,6 @@ class CalibrationData:
         with open(meta_path, 'w') as f:
             json.dump(meta, f, indent=2)
         print(f"[CALIB] Métadonnées sauvées: {meta_path}")
-
-        # 3. Grille d'occupation
-        if hasattr(self, 'occupancy_map') and self.occupancy_map is not None:
-             map_path = config_path / "occupancy.npy"
-             np.save(map_path, self.occupancy_map)
-             print(f"[CALIB] Grille d'occupation sauvée: {map_path}")
         
     @classmethod
     def load(cls, config_dir: str) -> 'CalibrationData':
@@ -316,8 +309,6 @@ class StandaloneCalibrationWizard:
                     return 'escape'
                 if event.key == pygame.K_SPACE:
                     return 'space'
-                if event.key == pygame.K_i:
-                    return 'i'
         return None
 
     def run(self, output_path: str = None) -> CalibrationData:
@@ -348,11 +339,7 @@ class StandaloneCalibrationWizard:
                 elif self.step == 2:
                     self._step_metric(action)
                 elif self.step == 3:
-                    self._step_verify(action)
-                elif self.step == 4:
-                    self._step_occupancy(action)
-                elif self.step == 5:
-                    self._step_done()
+                    self._step_verify()
                     
                 pygame.display.flip()
                 
@@ -481,14 +468,9 @@ class StandaloneCalibrationWizard:
         print(f"[WIZARD] Échelle (Médiane/{len(scales)}): {self.calibration.pixels_per_meter:.2f} px/m")
         self.step = 3
 
-    def _step_verify(self, action):
+    def _step_verify(self):
         """Étape 3: Vérification AR temps réel."""
         self.screen.fill((0, 0, 0))
-        
-        if action == 'space':
-            self.step = 4
-            return
-
         
         img = self.cam.get_frame()
         if img is None:
@@ -539,96 +521,6 @@ class StandaloneCalibrationWizard:
             "Le point cyan doit être sur le robot réel", 
             300, (255, 255, 0), (0, 0, 0)
         )
-        self._draw_text_center(
-            "ESPACE pour générer la grille d'occupation", 
-            350, (255, 255, 255), (0, 0, 0)
-        )
-    def _step_occupancy(self, action):
-        """Step 4: Generate Occupancy Grid (Thresholding)."""
-        # Threshold control
-        if not hasattr(self, 'threshold'):
-            self.threshold = 100
-            
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_UP]: self.threshold = min(255, self.threshold + 1)
-        if keys[pygame.K_DOWN]: self.threshold = max(0, self.threshold - 1)
-        
-        img = self.cam.get_frame()
-        if img is None: return
-
-        # 1. Warp to Projector View (Rectified)
-        warped = cv2.warpPerspective(
-            img, 
-            self.calibration.H_CamToProj, 
-            (self.proj_w, self.proj_h)
-        )
-        
-        # 2. Process for Occupancy
-        gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-        
-        # Simple Global Threshold
-        # Objects are darker or lighter? Usually darker on white floor or lighter on dark floor.
-        # Let's assume darker objects on light floor for now, or let user invert.
-        # We'll just do simple threshold: binary map where 1 = obstacle
-        
-        # If user presses 'I', invert logic
-        if not hasattr(self, 'invert_threshold'):
-            self.invert_threshold = False
-        
-        # Handle single key press for invert
-        if action == 'i':
-            self.invert_threshold = not self.invert_threshold
-            
-        if self.invert_threshold:
-            _, binary = cv2.threshold(gray, self.threshold, 255, cv2.THRESH_BINARY)
-        else:
-            _, binary = cv2.threshold(gray, self.threshold, 255, cv2.THRESH_BINARY_INV)
-            
-        # 3. Visualization
-        # Show the binary map overlaid on the warped image
-        
-        # Convert binary to RGB (Red for obstacles)
-        bin_rgb = cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB)
-        bin_rgb[:,:,0] = 0 # G=0
-        bin_rgb[:,:,1] = 0 # B=0
-        # R is kept (where 255)
-        
-        # Blend
-        warped_rgb = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
-        warped_rgb = np.transpose(warped_rgb, (1, 0, 2))
-        surf_bg = pygame.surfarray.make_surface(warped_rgb)
-        
-        bin_rgb_t = np.transpose(bin_rgb, (1, 0, 2))
-        surf_bin = pygame.surfarray.make_surface(bin_rgb_t)
-        surf_bin.set_alpha(128)
-        surf_bin.set_colorkey((0,0,0)) # Black is transparent
-        
-        self.screen.blit(surf_bg, (0,0))
-        self.screen.blit(surf_bin, (0,0))
-        
-        # UI
-        status_txt = f"SEUIL: {self.threshold} (Haut/Bas) | INVERSER: 'I' ({'ON' if self.invert_threshold else 'OFF'})"
-        self._draw_text_center(status_txt, 300, (0, 255, 0), (0, 0, 0))
-        self._draw_text_center("ESPACE pour SAUVEGARDER", 340, (255, 255, 0), (0, 0, 0))
-
-        if action == 'space':
-            self._save_occupancy(binary)
-            self.step = 5 # Done
-
-    def _save_occupancy(self, binary_map):
-        """Saves the binary occupancy map."""
-        print("[WIZARD] Sauvegarde de la grille d'occupation...")
-        self.occupancy_map = binary_map
-        # Will be saved in run() via config_dir passed implicitly or explicitly? 
-        # The run() method handles saving calibration, but we need to save this map too.
-        # We'll store it in self.calibration temporarily or verify where to save.
-        self.calibration.occupancy_map = binary_map
-
-    def _step_done(self):
-        self.screen.fill((0,0,0))
-        self._draw_text_center("WIZARD TERMINE", 0, (0, 255, 0))
-        self._draw_text_center("Fichiers sauvegardés.", 50, (255, 255, 255))
-        self._draw_text_center("Appuyez sur ESC pour quitter", 100, (255, 255, 0))
 
     def _draw_grid(self):
         """Dessine une grille de référence (50cm)."""

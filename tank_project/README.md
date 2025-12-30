@@ -1,70 +1,39 @@
-# Tank Project
+# Tank Arena - Architecture Unifiée
 
-Moteur de jeu principal pour Tank Arena avec IA comportementale, vision par ordinateur, et contrôle robot.
+**Tank Arena** est un jeu en Réalité Mixte où des robots autonomes affrontent des joueurs humains dans une arène projetée au sol.
 
-## Structure
+> **Documentation**
+> Pour les détails d'Architecture, Configuration et Dépannage, voir le [**wiki.md**](./wiki.md).
 
-```
-tank_project/
-├── config/              # Configuration YAML
-├── core/
-│   ├── control/         # Cinématique, trajectoire, pont ROS
-│   ├── game/            # Moteur de Jeu, Raycast, Gestion des touches
-│   ├── ia/              # Arbre de comportement, A*, Décisions
-│   └── world/           # Modèle du Monde, Grille d'occupation
-├── perception/
-│   ├── calibration/     # Calibration arène/projecteur
-│   └── camera/          # ArUco, Kalman, RealSense
-├── visualization/       # Rendu Pygame, HUD
-└── scripts/
-    └── run_game.py      # Point d'entrée
-```
+## Démarrage
 
-## Lancement
+### Prérequis
+*   Python 3.8+
+*   Pygame, OpenCV, NumPy
+*   Serveur ROS Bridge (lancé pour le contrôle robot)
 
+### Lancer le Jeu
+
+**1. Mode Matériel Réel** (Projecteur + Caméra + Robots)
 ```bash
-cd tank_project
-python3 scripts/run_game.py
+python3 main.py
 ```
 
-## Configuration
-
-| Fichier       | Description                  |
-| ------------- | ---------------------------- |
-| `arena.yaml`  | Dimensions arène, projecteur |
-| `camera.yaml` | RealSense, ArUco, Kalman     |
-| `game.yaml`   | Règles du jeu, cooldowns     |
-| `ia.yaml`     | Comportement IA              |
-| `robot.yaml`  | Cinématique, port 8765       |
-
-## Connexion au Bridge
-
-Le `ROSBridgeClient` se connecte au Safety Bridge avec retry automatique :
-
-```python
-client = ROSBridgeClient(host='localhost', port=8765)
-client.connect(max_retries=0, retry_interval=8.0)  # Retry infini
-```
-
-## Contrôles
-
-| Touche    | Action                     |
-| --------- | -------------------------- |
-| `Espace`  | Démarrer match             |
-| `Flèches` | Contrôler robot humain     |
-| `F`       | Tirer                      |
-| `D`       | Toggle debug paths / inflation |
-| `ESC`     | Quitter                    |
-
-## Scripts Utiles
-
+**2. Mode Simulation** (Sans matériel)
 ```bash
-# Calibration (obligatoire 1ère fois)
-python3 scripts/run_calibration.py
-
-# Validation visuelle homographie
-python3 scripts/show_grid.py
-
-# Lancer le jeu
-python3 scripts/run_game.py
+python3 main.py --mock
 ```
+
+## Structure du Projet
+
+*   `main.py` : Point d'entrée.
+*   `core/` : Logique Jeu (Manager), Contrôle (ROS), IA (Stratégie).
+*   `renderer/` : Visualisation Pygame.
+*   `perception/` : Vision par Ordinateur (RealSense + ArUco).
+*   `config/` : Fichiers de configuration YAML.
+
+## Notes Importantes
+*   **IDs Robots** : 
+    *   **ID 4** : Joueur HUMAIN (Rouge)
+    *   **ID 5** : Robot IA (Bleu)
+*   **Calibration** : Si la projection est décalée, lancez `scripts/run_calibration_wizard.sh`.

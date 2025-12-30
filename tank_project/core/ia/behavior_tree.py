@@ -1,197 +1,296 @@
 """
-Arbre de Comportement - Stratégie Chasseur Simple
+Arbre de Comportement - Version Avancée (basée sur bt_latest.py)
 
-Implémente une stratégie simplifiée "Chasseur" avec priorité stricte :
-1. TIRER : Si Ennemi Visible ET Aligné -> Stop & Feu
-2. VISER : Si Ennemi Visible MAIS Non Aligné -> Tourner sur place
-3. CHASSER : Si Ennemi Non Visible -> Aller vers dernière position connue
-
-Logs : [BT] Action ...
+Fonctionnalités :
+1. Structure hiérarchique : Selector, Sequence, Condition, Action
+2. Stabilité Temporelle (Dwell Time) : Évite les oscillations d'état
+3. Priorités : Survie > Attaque > Poursuite
 """
 
+import time
+import numpy as np
 from enum import Enum
-from abc import ABC, abstractmethod
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
-# Import des prédicats de décision
-from .decisions import (
-    has_line_of_sight,
-    is_aimed_at_enemy
-)
+# --- CONFIG DEFAULTS ---
+# Ces valeurs peuvent être surchargées par la config YAML
+DEFAULT_BT_CONFIG = {
+    "min_state_duration_s": 0.40,
+    "min_state_duration_by_state_s": {
+        "ATTAQUE (ALIGNEMENT)": 0.35,
+        "ATTAQUE (VERROUILLÉ)": 0.25,
+        "POURSUITE": 0.50,
+        "RECHERCHE DE CIBLES": 0.20,
+        "INITIALISATION": 0.10,
+    },
+    "force_switch_states": [
+        "RETRAIT (MENACE DIRECTE)"
+    ],
+    "log_transitions": True
+}
 
+# --- PARAMÈTRES IA PAR DÉFAUT ---
+SEUIL_MENACE_DEG = 15.0     # Angle max pour considérer que l'ennemi nous vise
+SEUIL_LOCK_TIR_DEG = 5.0    # Précision requise pour l'état de tir
 
-class NodeStatus(Enum):
-    """Statut d'exécution du nœud de l'arbre comportemental."""
-    SUCCESS = "success"
-    FAILURE = "failure"
-    RUNNING = "running"
+class BTStatus(Enum):
+    SUCCESS = 0
+    FAILURE = 1
+    RUNNING = 2
 
-
-class BTNode(ABC):
+class BTNode:
     def __init__(self, name):
         self.name = name
-    
-    @abstractmethod
-    def tick(self, context):
-        pass
 
+    def tick(self, ai_pose, en_pose, world) -> BTStatus:
+        raise NotImplementedError
 
-class Selector(BTNode):
-    """Essaie les enfants jusqu'à succès."""
-    def __init__(self, name, children):
+class SequenceNode(BTNode):
+    def __init__(self, name, children: List[BTNode]):
         super().__init__(name)
         self.children = children
-    
-    def tick(self, context):
+
+    def tick(self, ai_pose, en_pose, world) -> BTStatus:
         for child in self.children:
-            status = child.tick(context)
-            if status == NodeStatus.SUCCESS:
-                return NodeStatus.SUCCESS
-            elif status == NodeStatus.RUNNING:
-                return NodeStatus.RUNNING
-        return NodeStatus.FAILURE
+            status = child.tick(ai_pose, en_pose, world)
+            if status != BTStatus.SUCCESS:
+                return status
+        return BTStatus.SUCCESS
 
-
-class Sequence(BTNode):
-    """Exécute tous les enfants dans l'ordre."""
-    def __init__(self, name, children):
+class SelectorNode(BTNode):
+    def __init__(self, name, children: List[BTNode]):
         super().__init__(name)
         self.children = children
-    
-    def tick(self, context):
+
+    def tick(self, ai_pose, en_pose, world) -> BTStatus:
         for child in self.children:
-            status = child.tick(context)
-            if status == NodeStatus.FAILURE:
-                return NodeStatus.FAILURE
-            elif status == NodeStatus.RUNNING:
-                return NodeStatus.RUNNING
-        return NodeStatus.SUCCESS
+            status = child.tick(ai_pose, en_pose, world)
+            if status != BTStatus.FAILURE:
+                return status
+        return BTStatus.FAILURE
 
-
-class Condition(BTNode):
-    """Vérifie un prédicat."""
-    def __init__(self, name, predicate_fn):
+class ConditionNode(BTNode):
+    def __init__(self, name, condition_func):
         super().__init__(name)
-        self.predicate_fn = predicate_fn
-    
-    def tick(self, context):
-        if self.predicate_fn(context):
-            return NodeStatus.SUCCESS
-        return NodeStatus.FAILURE
+        self.condition_func = condition_func
 
+    def tick(self, ai_pose, en_pose, world) -> BTStatus:
+        if self.condition_func(ai_pose, en_pose, world):
+            return BTStatus.SUCCESS
+        return BTStatus.FAILURE
 
-class Action(BTNode):
-    """Exécute une action."""
-    def __init__(self, name, action_fn):
+class ActionNode(BTNode):
+    def __init__(self, name, action_func):
         super().__init__(name)
-        self.action_fn = action_fn
-    
-    def tick(self, context):
-        return self.action_fn(context)
+        self.action_func = action_func
+
+    def tick(self, ai_pose, en_pose, world) -> BTStatus:
+        self.action_func(ai_pose, en_pose, world)
+        return BTStatus.SUCCESS
 
 
-# --- Fonctions d'Action Simplifiées ---
-
-def action_shoot(context):
-    """Action: TIRER (Stop mouvement + Feu)"""
-    human_pose = context.get('human_pose')
-    if human_pose is None: return NodeStatus.FAILURE
-    
-    # On définit la cible de tir
-    context['ai_output']['target_position'] = None # Stop
-    context['ai_output']['target_orientation'] = human_pose[:2] # Viser coord
-    context['ai_output']['fire_request'] = True
-    context['ai_output']['state'] = 'ATTACK'
-    
-    print("[BT] Action : FEU ! (Aligné et Visible)")
-    return NodeStatus.SUCCESS
-
-def action_aim(context):
-    """Action: VISER (Tourner vers ennemi, sans tirer)"""
-    human_pose = context.get('human_pose')
-    if human_pose is None: return NodeStatus.FAILURE
-    
-    context['ai_output']['target_position'] = None # Stop pour tourner
-    context['ai_output']['target_orientation'] = human_pose[:2]
-    context['ai_output']['fire_request'] = False # Pas encore
-    context['ai_output']['state'] = 'AIMING'
-    
-    print("[BT] Action : VISER (Rotation vers ennemi)")
-    return NodeStatus.SUCCESS
-
-def action_hunt(context):
-    """Action: CHASSER (Aller vers dernière position connue)"""
-    human_pose = context.get('human_pose')
-    if human_pose is not None:
-        context['ai_output']['target_position'] = human_pose[:2]
-        context['ai_output']['fire_request'] = False
-        context['ai_output']['state'] = 'HUNT'
-        print("[BT] Action : CHASSER (Déplacement vers cible)")
-        return NodeStatus.SUCCESS
-    
-    # Si on ne connait pas la position ennemie (jamais vu?), on reste sur place ou on patrouille
-    # Pour l'instant on reste IDLE
-    context['ai_output']['state'] = 'IDLE'
-    print("[BT] Action : IDLE (Ennemi inconnu)")
-    return NodeStatus.FAILURE
-
-
-def build_ai_behavior_tree():
+class TankBehaviorTree:
     """
-    Construit l'arbre Chasseur Simple.
-    
-    Racine (Selector)
-      1. Sequence (TIRER)
-         - Condition: LOS ?
-         - Condition: Aligné ?
-         - Action: FEU
-      2. Sequence (VISER)
-         - Condition: LOS ?
-         - Action: VISER
-      3. Action (CHASSER)
+    Arbre de comportement principal du Tank.
+    Intègre la logique de décision et la stabilité temporelle.
     """
-    
-    # 1. TIRER
-    seq_shoot = Sequence("SHOOT_SEQ", [
-        Condition("HasLOS", has_line_of_sight),
-        Condition("IsAligned", is_aimed_at_enemy),
-        Action("Shoot", action_shoot)
-    ])
-    
-    # 2. VISER
-    seq_aim = Sequence("AIM_SEQ", [
-        Condition("HasLOS", has_line_of_sight),
-        Action("Aim", action_aim)
-    ])
-    
-    # 3. CHASSER
-    act_hunt = Action("Hunt", action_hunt)
-    
-    return Selector("ROOT_HUNTER", [
-        seq_shoot,
-        seq_aim,
-        act_hunt
-    ])
-
-
-class BehaviorTreeExecutor:
-    def __init__(self):
-        self.tree = build_ai_behavior_tree()
-    
-    def execute(self, context):
-        # Init structure sortie
-        context['ai_output'] = {
-            'target_position': None,
-            'target_orientation': None,
+    def __init__(self, world_model, config: Optional[Dict] = None):
+        self.world = world_model
+        self.etat = "INITIALISATION"
+        self.panic_until = 0.0 # Timer pour le mode panique
+        
+        # Output de l'arbre pour la stratégie
+        self.current_decision = {
+            'state': "INITIALISATION",
             'fire_request': False,
-            'state': 'IDLE',
-            'has_los': False
+            'target_orientation': None,
+            'has_los': False,
+            'target_position': None # Sera rempli par la stratégie/tactique
         }
+
+        # Config stabilité (dwell time)
+        cfg = dict(DEFAULT_BT_CONFIG)
+        if isinstance(config, dict):
+            cfg.update(config)
+            if "min_state_duration_by_state_s" in config:
+                merged = dict(DEFAULT_BT_CONFIG.get("min_state_duration_by_state_s", {}))
+                merged.update(config["min_state_duration_by_state_s"])
+                cfg["min_state_duration_by_state_s"] = merged
+
+        self.bt_cfg = cfg
+        self._last_state_change_ts = time.time()
+        self._build_tree()
         
-        # Helper LOS pour info debug
-        context['ai_output']['has_los'] = has_line_of_sight(context)
+    def _min_duration_for_state(self, state_name: str) -> float:
+        by_state = self.bt_cfg.get("min_state_duration_by_state_s", {}) or {}
+        if state_name in by_state:
+            return float(by_state[state_name])
+        return float(self.bt_cfg.get("min_state_duration_s", 0.4))
+
+    def _can_switch(self, new_state: str) -> bool:
+        now = time.time()
+        dt = now - self._last_state_change_ts
+        required = self._min_duration_for_state(self.etat)
+        return dt >= required
+
+    def _set_state(self, new_state: str, context_updates: Dict, reason: str = ""):
+        """
+        Met à jour l'état avec verrou temporel et applique les mises à jour de contexte (décisions).
+        """
+        # Toujours mettre à jour les intentions (tir, orientation) même si l'état ne change pas
+        self.current_decision.update(context_updates)
+        self.current_decision['state'] = self.etat # Default to current
+
+        if new_state == self.etat:
+            return
+
+        force_states = set(self.bt_cfg.get("force_switch_states", []) or [])
+        force = (new_state in force_states)
+
+        if force or self._can_switch(new_state):
+            prev = self.etat
+            self.etat = new_state
+            self.current_decision['state'] = new_state
+            self._last_state_change_ts = time.time()
+            
+            if self.bt_cfg.get("log_transitions", True):
+                extra = f" | {reason}" if reason else ""
+                print(f"[BT] TRANSITION: {prev} -> {new_state}{extra}")
+
+    # --- MÉTHODES UTILITAIRES / PRÉDICATS ---
+
+    def check_ligne_de_vue(self, p1, p2):
+        """Vérifie si le trajet est libre d'obstacles."""
+        steps = 20
+        for i in range(1, steps):
+            tx = p1[0] + (p2[0] - p1[0]) * (i / steps)
+            ty = p1[1] + (p2[1] - p1[1]) * (i / steps)
+            if not self.world.is_position_valid(tx, ty):
+                return False
+        return True
+
+    def est_vise_par_ennemi(self, ai_pose, en_pose):
+        if ai_pose is None or en_pose is None:
+            return False
+            
+        # Vecteur Ennemi -> IA
+        dx, dy = ai_pose[0] - en_pose[0], ai_pose[1] - en_pose[1]
+        angle_vers_ia = np.arctan2(dy, dx)
         
-        status = self.tree.tick(context)
-        # print(f"[BT] Tick Status: {status.value}")
+        # Angle de regard de l'ennemi
+        theta_ennemi = en_pose[2]
         
-        return context['ai_output']
+        erreur_angle = (theta_ennemi - angle_vers_ia + np.pi) % (2 * np.pi) - np.pi
+        erreur_deg = abs(np.degrees(erreur_angle))
+        
+        # Si l'ennemi regarde vers nous ET qu'il n'y a pas d'obstacle
+        if erreur_deg < SEUIL_MENACE_DEG:
+            return self.check_ligne_de_vue(en_pose[:2], ai_pose[:2])
+        return False
+
+    def _build_tree(self):
+        """Construit la structure de l'arbre."""
+        
+        # --- ACTIONS ---
+        
+        def set_retrait(ai_pose, en_pose, world):
+            self._set_state("RETRAIT (MENACE DIRECTE)", {
+                'fire_request': False,
+                'target_orientation': None # La stratégie gérera la fuite
+            }, reason="Menace directe")
+
+        def set_attaque_lock(ai_pose, en_pose, world):
+            self._set_state("ATTAQUE (VERROUILLÉ)", {
+                'fire_request': True,
+                'target_orientation': en_pose[:2], # Vise l'ennemi
+                'has_los': True
+            }, reason="Tir possible")
+
+        def set_attaque_align(ai_pose, en_pose, world):
+            self._set_state("ATTAQUE (ALIGNEMENT)", {
+                'fire_request': False, # Pas encore
+                'target_orientation': en_pose[:2], # Vise l'ennemi
+                'has_los': True
+            }, reason="Alignement en cours")
+
+        def set_poursuite(ai_pose, en_pose, world):
+            self._set_state("POURSUITE", {
+                'fire_request': False,
+                'target_orientation': None, # La stratégie gérera le pathfinding
+                'has_los': False
+            }, reason="Recherche cible")
+
+        # --- CONDITIONS ---
+
+        def menace_directe(ai_pose, en_pose, world):
+            is_threat = self.est_vise_par_ennemi(ai_pose, en_pose)
+            
+            # Logic Panic (Hysteresis)
+            if is_threat:
+                self.panic_until = time.time() + 2.0 # 2s de Panique assurée
+            
+            if time.time() < self.panic_until:
+                return True
+                
+            return False
+
+        def ligne_de_vue(ai_pose, en_pose, world):
+            if ai_pose is None or en_pose is None:
+                return False
+            return self.check_ligne_de_vue(ai_pose[:2], en_pose[:2])
+
+        def verrouille(ai_pose, en_pose, world):
+            # Vérifie si NOUS visons l'ennemi
+            if not ligne_de_vue(ai_pose, en_pose, world):
+                return False
+            dx, dy = en_pose[0] - ai_pose[0], en_pose[1] - ai_pose[1]
+            angle_vers_en = np.arctan2(dy, dx)
+            erreur_ia = (ai_pose[2] - angle_vers_en + np.pi) % (2 * np.pi) - np.pi
+            return abs(np.degrees(erreur_ia)) < SEUIL_LOCK_TIR_DEG
+
+        # --- ARBRE ---
+        
+        self.root = SelectorNode("Root", [
+            # 1. RETRAIT (Survie)
+            SequenceNode("Retrait", [
+                ConditionNode("Menace ?", menace_directe),
+                ActionNode("Action Retrait", set_retrait),
+            ]),
+            
+            # 2. ATTAQUE (Aggressif)
+            SelectorNode("Attaque", [
+                # Tir si verrouillé
+                SequenceNode("Tir", [
+                    ConditionNode("LOS ?", ligne_de_vue),
+                    ConditionNode("Lock ?", verrouille),
+                    ActionNode("Action Tir", set_attaque_lock),
+                ]),
+                # Alignement si vu maiz pas lock
+                SequenceNode("Align", [
+                    ConditionNode("LOS ?", ligne_de_vue),
+                    ActionNode("Action Align", set_attaque_align),
+                ]),
+            ]),
+            
+            # 3. POURSUITE (Défaut)
+            ActionNode("Action Poursuite", set_poursuite),
+        ])
+
+    def execute(self, context) -> Dict:
+        """
+        Exécute l'arbre et retourne les décisions.
+        Format du context attendu : { 'ai_pose', 'human_pose', ... }
+        """
+        ai_pose = context.get('ai_pose')
+        en_pose = context.get('human_pose')
+        world = self.world # Use internal world ref for obstacles
+
+        if ai_pose is None or en_pose is None:
+            self._set_state("RECHERCHE DE CIBLES", {
+                'fire_request': False,
+                'target_position': None
+            }, reason="Perte visuelle")
+            return self.current_decision
+
+        self.root.tick(ai_pose, en_pose, world)
+        return self.current_decision

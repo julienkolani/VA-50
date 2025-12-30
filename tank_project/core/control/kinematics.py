@@ -72,42 +72,6 @@ class DifferentialDriveKinematics:
         
         return (x_new, y_new, theta_new)
     
-    def wheel_velocities_to_body(self, 
-                                 v_left: float, 
-                                 v_right: float) -> Tuple[float, float]:
-        """
-        Convertit les vitesses des roues en vitesses du corps.
-        
-        Args:
-            v_left: Vitesse roue gauche en m/s
-            v_right: Vitesse roue droite en m/s
-            
-        Returns:
-            (v, omega): vitesses linéaire et angulaire du corps
-        """
-        v = (v_right + v_left) / 2.0
-        omega = (v_right - v_left) / self.wheel_base
-        
-        return (v, omega)
-    
-    def body_to_wheel_velocities(self, 
-                                 v: float, 
-                                 omega: float) -> Tuple[float, float]:
-        """
-        Convertit les vitesses du corps en vitesses des roues.
-        
-        Args:
-            v: Vitesse linéaire en m/s
-            omega: Vitesse angulaire en rad/s
-            
-        Returns:
-            (v_left, v_right): vitesses des roues en m/s
-        """
-        v_left = v - (omega * self.wheel_base) / 2.0
-        v_right = v + (omega * self.wheel_base) / 2.0
-        
-        return (v_left, v_right)
-    
     def validate_velocities(self, 
                            v: float, 
                            omega: float,

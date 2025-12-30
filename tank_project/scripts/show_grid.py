@@ -91,63 +91,19 @@ def main():
     aruco = ArucoDetector()
 
     # 4. World Model (Pour l'inflation)
-    # Chargement config robot depuis arena.yaml
-    robot_radius = 0.09 # Default Turtlebot
-    inflation_margin = 0.05
-    
-    arena_conf_path = Path(__file__).parent.parent / 'config' / 'arena.yaml'
-    if arena_conf_path.exists():
-        with open(arena_conf_path) as f:
-            arena_conf = yaml.safe_load(f)
-            if 'robot' in arena_conf:
-                robot_radius = arena_conf['robot'].get('radius_m', 0.09)
-                inflation_margin = arena_conf['robot'].get('inflation_margin_m', 0.05)
-                print(f"[CONFIG] Robot chargé: Rayon={robot_radius}m (diam ~{robot_radius*2*100:.0f}cm), Marge={inflation_margin}m")
-
     # On utilise les dimensions exactes calculées par la calibration
     world = WorldModel(
         arena_width_m=transform_mgr.arena_width_m,
         arena_height_m=transform_mgr.arena_height_m,
         grid_resolution_m=0.02, # 2cm
-        robot_radius_m=robot_radius,
-        inflation_margin_m=inflation_margin
+        robot_radius_m=0.15,    # Ajuster selon votre robot (30cm diamètre = 0.15 rayon)
+        inflation_margin_m=0.05
     )
     world.generate_costmap()
 
-    # CHARGEMENT GRILLE OBSTACLES (Occupancy Grid)
-    occupancy_path = Path(__file__).parent.parent / 'config' / 'occupancy.npy'
-    if occupancy_path.exists():
-        print(f"[CHECK] Chargement grille : {occupancy_path}")
-        try:
-            occupancy_img = np.load(occupancy_path)
-            pixels_per_meter = transform_mgr.pixels_per_meter if transform_mgr.is_calibrated() else 1.0
-            
-            if pixels_per_meter > 0:
-                occ_y, occ_x = np.where(occupancy_img > 0)
-                
-                # Conversion Vectorisée (Projector Pixels -> Meters)
-                x_m = occ_x / pixels_per_meter
-                y_m = occ_y / pixels_per_meter
-                
-                # Filtrage pour rester dans l'arène
-                # valid_mask = (x_m >= 0) & (x_m <= transform_mgr.arena_width_m) & ... (Simplified)
-                
-                res = world.grid.resolution
-                grid_cols = (x_m / res).astype(int)
-                grid_rows = (y_m / res).astype(int)
-                
-                obstacle_cells = list(set(zip(grid_rows, grid_cols)))
-                world.grid.set_static_obstacles(obstacle_cells)
-                # Regenerate costmap after adding obstacles
-                world.generate_costmap() 
-                print(f"[CHECK] {len(obstacle_cells)} cellules d'obstacles injectées.")
-        except Exception as e:
-            print(f"[CHECK] Erreur chargement grille: {e}")
-
-    # Boucle Principale
     # Boucle Principale
     running = True
-    show_inflation = True # RE-ACTIVÉ PAR DÉFAUT (Utilisateur ne voit rien)
+    show_inflation = False
     clock = pygame.time.Clock()
 
     try:
@@ -157,8 +113,7 @@ def main():
                 if event.type == pygame.QUIT: running = False
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE: running = False
-                    elif event.key == pygame.K_d: 
-                        show_inflation = not show_inflation
+                    elif event.key == pygame.K_d: show_inflation = not show_inflation
 
             # 1. Acquisition Image
             color_frame, _ = camera.get_frames()
@@ -200,8 +155,6 @@ def main():
                 
                 # Taille d'une cellule en pixels (environ)
                 cell_px = int(world.grid.resolution * transform_mgr.pixels_per_meter)
-                # Minimum 1px
-                cell_px = max(1, cell_px)
                 
                 for r, c in zip(occ_y, occ_x):
                     # Conversion Grille -> Monde -> Pixels Projecteur
@@ -233,7 +186,7 @@ def main():
             mode = "COSTMAP" if show_inflation else "GRILLE"
             info = f"[ESC] Quitter | [D] Mode: {mode} | Scale: {transform_mgr.pixels_per_meter:.1f} px/m"
             screen.blit(font.render(info, True, (0, 255, 0)), (20, 20))
-            
+
             pygame.display.flip()
             clock.tick(60)
 

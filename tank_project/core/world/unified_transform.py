@@ -133,7 +133,7 @@ class UnifiedTransform:
         self.arena_width_m = arena_width_px / self.pixels_per_meter if self.pixels_per_meter > 0 else 0
         self.arena_height_m = arena_height_px / self.pixels_per_meter if self.pixels_per_meter > 0 else 0
         
-        print(f"[TRANSFORM] ✓ Chargé: {self.proj_width}x{self.proj_height}, "
+        print(f"[TRANSFORM] [OK] Chargé: {self.proj_width}x{self.proj_height}, "
               f"échelle={self.pixels_per_meter:.1f} px/m, "
               f"arène={self.arena_width_m:.2f}x{self.arena_height_m:.2f}m")
         
@@ -173,7 +173,7 @@ class UnifiedTransform:
         self.arena_width_m = arena_width_px / self.pixels_per_meter if self.pixels_per_meter > 0 else 0
         self.arena_height_m = arena_height_px / self.pixels_per_meter if self.pixels_per_meter > 0 else 0
         
-        print(f"[TRANSFORM] ✓ Chargé (legacy): {self.proj_width}x{self.proj_height}, "
+        print(f"[TRANSFORM] [OK] Chargé (legacy): {self.proj_width}x{self.proj_height}, "
               f"échelle={self.pixels_per_meter:.1f} px/m")
         
         return True

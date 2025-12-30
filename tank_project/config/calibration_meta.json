@@ -1,8 +1,8 @@
 {
   "version": "2.1",
-  "calibration_date": "2025-12-29T20:40:55.489644",
+  "calibration_date": "2025-12-30T16:01:45.069768",
   "scale": {
-    "pixels_per_meter": 886.0159301757812,
+    "pixels_per_meter": 908.7418212890625,
     "marker_size_m": 0.1
   },
   "projector": {

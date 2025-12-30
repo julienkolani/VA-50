@@ -261,20 +261,20 @@ def main():
             # Log détection toutes les 2 secondes en mode DETECTING
             if state == "DETECTING" and (current_time - last_log_time) > 2.0:
                 if ai_detected and enemy_detected:
-                    print(f"[DETECT] ✓ AI et Enemy détectés")
+                    print(f"[DETECT] [OK] AI et Enemy détectés")
                 elif ai_detected:
-                    print(f"[DETECT] ✓ AI détecté | ✗ Enemy manquant")
+                    print(f"[DETECT] [OK] AI détecté | [NON] Enemy manquant")
                 elif enemy_detected:
-                    print(f"[DETECT] ✗ AI manquant | ✓ Enemy détecté")
+                    print(f"[DETECT] [NON] AI manquant | [OK] Enemy détecté")
                 else:
-                    print(f"[DETECT] ✗ Aucun robot détecté")
+                    print(f"[DETECT] [NON] Aucun robot détecté")
                 last_log_time = current_time
 
             # 5. Machine à états du test
             if state == "DETECTING":
                 if ai_pose is not None and enemy_pose is not None:
                     print("\n[TEST] ========================================")
-                    print("[TEST] ✓ ROBOTS DÉTECTÉS !")
+                    print("[TEST] [OK] ROBOTS DÉTECTÉS !")
                     print(f"[TEST]   AI Pose    : ({ai_pose[0]:.3f}, {ai_pose[1]:.3f}, θ={np.degrees(ai_pose[2]):.1f}°)")
                     print(f"[TEST]   Enemy Pose : ({enemy_pose[0]:.3f}, {enemy_pose[1]:.3f}, θ={np.degrees(enemy_pose[2]):.1f}°)")
                     
@@ -323,7 +323,7 @@ def main():
                         if path[-1] != target_pos:
                             path.append(target_pos)
                         
-                        print(f"[PLAN] ✓ Chemin trouvé en {planning_time*1000:.1f}ms")
+                        print(f"[PLAN] [OK] Chemin trouvé en {planning_time*1000:.1f}ms")
                         print(f"[PLAN] Nombre de waypoints : {len(full_path)} → {len(path)} (downsampled)")
                         print(f"[PLAN] Premier waypoint : ({path[0][0]:.3f}, {path[0][1]:.3f})")
                         print(f"[PLAN] Dernier waypoint : ({path[-1][0]:.3f}, {path[-1][1]:.3f})")
@@ -331,7 +331,7 @@ def main():
                         print("\n[NAV] Début de la navigation...\n")
                         state = "NAVIGATING"
                     else:
-                        print("[PLAN] ✗ ATTENTION: Impossible de planifier le chemin !")
+                        print("[PLAN] [NON] ATTENTION: Impossible de planifier le chemin !")
                         print("[PLAN] Utilisation waypoint direct (fallback)...")
                         path = [target_pos]
                         current_waypoint_idx = 0
@@ -346,7 +346,7 @@ def main():
                         enemy_movement = np.linalg.norm(curr_enemy_pos - last_enemy_pos_for_path)
                         
                         if enemy_movement > REPLAN_THRESHOLD_M:
-                            print(f"\n[LOOP] ⚠️  L'adversaire a bougé de {enemy_movement*100:.1f}cm > {REPLAN_THRESHOLD_M*100:.0f}cm")
+                            print(f"\n[LOOP] [ATTENTION] L'adversaire a bougé de {enemy_movement*100:.1f}cm > {REPLAN_THRESHOLD_M*100:.0f}cm")
                             print("[LOOP] → Replanification du chemin...")
                             state = "PLANNING"
                             continue
@@ -354,7 +354,7 @@ def main():
                     # Vérifier si destination atteinte (tous waypoints passés)
                     if current_waypoint_idx >= len(path):
                         print("\n[NAV] ========================================")
-                        print("[NAV] ✓ TOUS LES WAYPOINTS ATTEINTS !")
+                        print("[NAV] [OK] TOUS LES WAYPOINTS ATTEINTS !")
                         if robot_connected:
                             print("[NAV] Arrêt du robot...")
                             ros_bridge.send_velocity_command(ROBOT_AI_ID, 0.0, 0.0)
@@ -373,11 +373,11 @@ def main():
                         
                         # Si waypoint atteint, avancer
                         if dist_to_wp < 0.05:  # 5cm
-                            print(f"[NAV] ✓ Waypoint {current_waypoint_idx + 1}/{len(path)} atteint ({wp[0]:.3f}, {wp[1]:.3f})")
+                            print(f"[NAV] [OK] Waypoint {current_waypoint_idx + 1}/{len(path)} atteint ({wp[0]:.3f}, {wp[1]:.3f})")
                             current_waypoint_idx += 1
                             if current_waypoint_idx >= len(path):
                                 print("\n[NAV] ========================================")
-                                print("[NAV] ✓ TOUS LES WAYPOINTS ATTEINTS !")
+                                print("[NAV] [OK] TOUS LES WAYPOINTS ATTEINTS !")
                                 if robot_connected:
                                     print("[NAV] Arrêt du robot...")
                                     ros_bridge.send_velocity_command(ROBOT_AI_ID, 0.0, 0.0)
@@ -425,7 +425,7 @@ def main():
                                 if dist_to_enemy < 0.05:  # Moins de 5cm de l'ennemi
                                     v_cmd = 0.0
                                     omega_cmd = 0.0
-                                    print(f"[NAV] ✓ Distance cible atteinte ({dist_to_enemy*100:.1f}cm), arrêt absolu")
+                                    print(f"[NAV] [OK] Distance cible atteinte ({dist_to_enemy*100:.1f}cm), arrêt absolu")
                             
                             # Log périodique des commandes (toutes les 1 secondes)
                             if tick_counter % 30 == 0:
@@ -446,7 +446,7 @@ def main():
                     enemy_movement = np.linalg.norm(curr_enemy_pos - last_enemy_pos_for_path)
                     
                     if enemy_movement > REPLAN_THRESHOLD_M:
-                        print(f"\n[LOOP] ⚠️  L'adversaire s'est éloigné de {enemy_movement*100:.1f}cm")
+                        print(f"\n[LOOP] [ATTENTION] L'adversaire s'est éloigné de {enemy_movement*100:.1f}cm")
                         print("[LOOP] → Nouvelle planification...")
                         state = "PLANNING"
 

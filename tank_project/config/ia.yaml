@@ -2,12 +2,16 @@
 
 behavior:
   # Threat assessment thresholds (adaptés à une arène de 2.5m x 1.8m)
-  danger_distance_m: 0.4         # Ennemi trop proche (40cm)
-  optimal_range_min_m: 0.6       # Portée min tir optimale (60cm)
+  danger_distance_m: 0.3         # Ennemi trop proche (40cm)
+  optimal_range_min_m: 0.4       # Portée min tir optimale (60cm)
   optimal_range_max_m: 1.8       # Portée max tir optimale (1.8m = largeur arène)
 
   # Behavior priorities
   survival_priority: true # Retreat overrides attack
+
+  sniper:
+    align_precision_deg: 3.0
+    rotation_gain: 1.5
 
 strategy:
   # Path planning

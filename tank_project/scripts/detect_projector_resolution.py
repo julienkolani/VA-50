@@ -4,7 +4,7 @@ Détecter et Configurer la Résolution du Projecteur
 
 Ce script :
 1. Liste les écrans connectés.
-2. Vous permet d'identifier le projecteur.
+2. permet d'identifier le projecteur.
 3. Met à jour automatiquement config/projector.yaml.
 
 Usage :
@@ -26,7 +26,7 @@ def load_projector_config():
 def save_projector_config(config, path):
     with open(path, 'w') as f:
         yaml.dump(config, f, default_flow_style=False)
-    print(f"✅ Configuration sauvegardée dans {path}")
+    print(f"[OK] Configuration sauvegardée dans {path}")
 
 def main():
     print("=" * 60)
@@ -44,7 +44,7 @@ def main():
         displays = [(info.current_w, info.current_h)]
         print("Note: Pygame ancien, détection limitée.")
 
-    print(f"\n🖥️  Écrans détectés : {len(displays)}\n")
+    print(f"\n[DISPLAY] Écrans détectés : {len(displays)}\n")
     
     for i, (w, h) in enumerate(displays):
         print(f"  [{i}] {w} x {h} px  {'<-- Probablement le PC' if i==0 else '<-- Probablement le Projecteur'}")
@@ -58,16 +58,16 @@ def main():
         
         idx = int(choice)
         if idx < 0 or idx >= len(displays):
-            print("❌ ID invalide.")
+            print("[ERREUR] ID invalide.")
             return
             
         target_w, target_h = displays[idx]
-        print(f"\n👌 Vous avez choisi : {target_w} x {target_h} px")
+        print(f"\n[OK] Vous avez choisi : {target_w} x {target_h} px")
         
         # 2. Mise à jour de la config
         config, path = load_projector_config()
         if config is None:
-            print("❌ Erreur : config/projector.yaml introuvable.")
+            print("[ERREUR] Erreur : config/projector.yaml introuvable.")
             return
             
         print(f"\nAncienne configuration : {config['projector']['width']} x {config['projector']['height']}")
@@ -87,7 +87,7 @@ def main():
         confirm = input("\nSauvegarder cette configuration ? (o/n) : ")
         if confirm.lower() == 'o':
             save_projector_config(config, path)
-            print("\n✨ SUCCÈS ! La résolution est corrigée.")
+            print("\n[SUCCES] SUCCÈS ! La résolution est corrigée.")
             print("Relancez maintenant 'python3 scripts/run_calibration.py'")
         else:
             print("Annulé.")
