@@ -1,19 +1,40 @@
 # Controller Configuration
 
+speed_control:
+  initial_factor: 1.0
+  min_factor: 0.2
+  max_factor: 1.0
+  increment: 0.1
+  # Smoothing / Ramping (m/s per update tick @ 30Hz)
+  acceleration_ramp_linear: 0.01
+  acceleration_ramp_angular: 0.05
+
 keyboard:
-  max_linear_mps: 3.5
-  max_angular_dps: 120
-  acceleration_linear: 0.2
-  acceleration_angular: 2.5
+  max_linear_mps: 2.2 # Internal unit? No, we will fix this to be 0.22 if we change logic, but for now app_settings used 2.2.
+                      # WAIT. app_settings used 2.2, but controller logic multiplied by 0.1.
+                      # Let's standardize to REAL UNITS: 0.22.
+                      # AND we will fix the controller to NOT multiply by 0.1 if we give it real units?
+                      # Actually, keeping compatibility: app_settings had 2.2.
+                      # Let's put 0.22 here and fix the code to use it directly.
+  max_linear: 2.2      # Kept as legacy "internal" unit to minimize logic changes for now, or fix logic?
+                       # Ramping logic in existing code was `step_lin = 0.01`.
+                       # If we change unit to 0.22, ramp must be 0.001.
+                       # Let's keep strict parity with app_settings values for safety first.
+  
+  # Values from app_settings.py
+  accel_linear: 0.2
+  accel_angular: 2.5
+  max_linear_internal: 2.2    # EQUIV 0.22 m/s output
+  max_angular_degrees: 69     # EQUIV 1.2 rad/s
   friction_linear: 0.92
   friction_angular: 0.82
 
 ps3:
-  max_linear_mps: 3.5
-  max_angular_dps: 120
   deadzone: 0.15
+  max_linear_internal: 2.2
+  max_angular_degrees: 69
   button_mapping:
-    emergency_stop: 0 # X button
+    cross: 0
     circle: 1
     triangle: 2
     square: 3
@@ -21,9 +42,3 @@ ps3:
     left_x: 0
     left_y: 1
     right_x: 2
-
-speed_control:
-  initial_factor: 0.07
-  min_factor: 0.2
-  max_factor: 2.0
-  increment: 0.1

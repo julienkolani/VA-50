@@ -13,46 +13,70 @@ Classes:
 
 import pygame
 import math
-import config
+
 
 
 class PS3Controller:
     """Contrôleur manette PS3 configurable pour TurtleBot"""
 
-    def __init__(self, vitesse_factor=None):
-
-        # Charger config PS3
-        cfg = config.get_ps3_config()
-
-        self.vitesse_factor = (
-            vitesse_factor if vitesse_factor is not None
-            else config.INITIAL_SPEED_FACTOR
-        )
-
+    def __init__(self, config):
+        """
+        Initialise le contrôleur PS3.
+        Args:
+            config (dict): Configuration globale
+        """
+        pygame.joystick.init()
         self.joystick = None
         self.connected = False
+        
+        ctrl_cfg = config.get('controls', {})
+        ps3_cfg = ctrl_cfg.get('ps3', {})
+        speed_cfg = ctrl_cfg.get('speed_control', {})
+        
+        # Facteur de vitesse initial
+        self.vitesse_factor = speed_cfg.get('initial_factor', 1.0)
+        
+        # Mappings
+        self.btn_map = ps3_cfg.get('button_mapping', {})
+        self.axis_map = ps3_cfg.get('axis_mapping', {})
+        
+        # Config des axes / boutons (fallback si mapping vide ou clé manquante)
+        self.BTN_X = self.btn_map.get('cross', 0)
+        self.BTN_CIRCLE = self.btn_map.get('circle', 1)
+        self.BTN_TRIANGLE = self.btn_map.get('triangle', 2)
+        self.BTN_SQUARE = self.btn_map.get('square', 3)
+
+        self.AXIS_LEFT_X = self.axis_map.get('left_x', 0)
+        self.AXIS_LEFT_Y = self.axis_map.get('left_y', 1)
+        self.AXIS_RIGHT_X = self.axis_map.get('right_x', 2)
+        
+        self.deadzone = ps3_cfg.get('deadzone', 0.15)
+        
+        # Rampes de lissage
+        self.ramp_linear = speed_cfg.get('acceleration_ramp_linear', 0.01)
+        self.ramp_angular = speed_cfg.get('acceleration_ramp_angular', 0.05)
+
+        # -- Définition des VITESSES MAX --
+        # La config robot contient directement velocity_limits (pas imbriqué)
+        robot_cfg = config.get('robot', {})
+        robot_limits = robot_cfg.get('velocity_limits', {})
+        
+        # 1. Limite Absolue (Physique)
+        self.limit_linear_mps = robot_limits.get('max_linear_mps', 0.22)
+        self.limit_angular_radps = robot_limits.get('max_angular_radps', 4.2)
+        
+        # 2. Vitesse Max Contrôleur
+        self.vitesse_max_lineaire = self.limit_linear_mps * self.vitesse_factor
+        self.vitesse_max_angulaire = math.degrees(self.limit_angular_radps) * self.vitesse_factor
+        
+        # Limites strictes
+        self.strict_max_linear = self.limit_linear_mps
+        self.strict_max_angular = math.degrees(self.limit_angular_radps)
+        
+        self.current_linear = 0.0
+        self.current_angular = 0.0
         self.tir_demande = False
-
-        # Deadzone depuis config
-        self.deadzone = cfg["deadzone"]
-
-        # Vitesse max depuis config (scalée par vitesse_factor)
-        self.vitesse_max_lineaire = cfg["max_linear"] * self.vitesse_factor
-        self.vitesse_max_angulaire = cfg["max_angular"] * self.vitesse_factor
-
-        # Mapping boutons (configurable)
-        self.BTN_X = cfg["btn_x"]
-        self.BTN_CIRCLE = cfg["btn_circle"]
-        self.BTN_TRIANGLE = cfg["btn_triangle"]
-        self.BTN_SQUARE = cfg["btn_square"]
-
-        # Mapping axes
-        self.AXIS_LEFT_X = cfg["axis_left_x"]
-        self.AXIS_LEFT_Y = cfg["axis_left_y"]
-        self.AXIS_RIGHT_X = cfg["axis_right_x"]
-
-        # Init manette pygame
-        pygame.joystick.init()
+        
         self._detect_controller()
 
 
@@ -82,15 +106,17 @@ class PS3Controller:
     # ================================================================
     #   Ajustement dynamique du facteur de vitesse (+ / -)
     # ================================================================
+    # ================================================================
+    #   Ajustement dynamique du facteur de vitesse (+ / -)
+    # ================================================================
     def set_vitesse_factor(self, factor):
 
         ratio = factor / self.vitesse_factor
         self.vitesse_factor = factor
 
-        cfg = config.get_ps3_config()
-
-        self.vitesse_max_lineaire = cfg["max_linear"] * factor
-        self.vitesse_max_angulaire = cfg["max_angular"] * factor
+        # Recalcul des vitesses max basées sur les limites physiques
+        self.vitesse_max_lineaire = self.limit_linear_mps * self.vitesse_factor
+        self.vitesse_max_angulaire = math.degrees(self.limit_angular_radps) * self.vitesse_factor
 
 
     # ================================================================
@@ -108,6 +134,9 @@ class PS3Controller:
     # ================================================================
     #   Mise à jour des commandes
     # ================================================================
+    # ================================================================
+    #   Mise à jour des commandes
+    # ================================================================
     def update(self):
         """Retourne (linear_x, angular_z, tir)"""
 
@@ -116,47 +145,47 @@ class PS3Controller:
 
         self.tir_demande = False
 
-        # ----------------------------------------------------------
-        #  Lecture des axes (stick gauche)
-        # ----------------------------------------------------------
+        # --- Lecture Entrées (Raw Input) ---
+        pygame.event.pump()
         axis_x = self.joystick.get_axis(self.AXIS_LEFT_X)  # gauche/droite
         axis_y = self.joystick.get_axis(self.AXIS_LEFT_Y)  # avant/arrière
 
         # Deadzone
         axis_x = self._apply_deadzone(axis_x)
         axis_y = self._apply_deadzone(axis_y)
-
+        
+        # --- Calcul Cibles (Target Velocities) ---
         # Stick PS3 : vers le haut = valeur négative
-        vitesse_lineaire = -axis_y * self.vitesse_max_lineaire
+        target_linear = -axis_y * self.vitesse_max_lineaire
+        
+        # Correction du bug de rotation inversee
+        direction_factor = -1 if target_linear < 0 else 1
+        target_angular = -axis_x * self.vitesse_max_angulaire * direction_factor
 
-        # Correction du bug de rotation inversee (meme logique que clavier)
-        direction_factor = -1 if vitesse_lineaire < 0 else 1
-
-        vitesse_angulaire = -axis_x * self.vitesse_max_angulaire * direction_factor
-
-        # ----------------------------------------------------------
-        #  D-pad override (haut / bas / gauche / droite)
-        # ----------------------------------------------------------
+        # D-pad override (optionnel)
         try:
             if self.joystick.get_numhats() > 0:
                 hat_x, hat_y = self.joystick.get_hat(0)
-
-                # Avant / arrière
-                if hat_y != 0:
-                    vitesse_lineaire = hat_y * self.vitesse_max_lineaire
-
-                # Gauche / droite
-                if hat_x != 0:
-                    vitesse_angulaire = -hat_x * self.vitesse_max_angulaire * direction_factor
-
+                if hat_y != 0: target_linear = hat_y * self.vitesse_max_lineaire
+                if hat_x != 0: target_angular = -hat_x * self.vitesse_max_angulaire * direction_factor
         except Exception:
             pass
 
-        # ----------------------------------------------------------
-        # Conversion ROS
-        # ----------------------------------------------------------
-        linear_x = vitesse_lineaire * 0.1
-        angular_z = math.radians(vitesse_angulaire)
+        # --- Application directe (pas de rampe) ---
+        # On applique la vitesse cible immédiatement
+        self.current_linear = target_linear
+        self.current_angular = target_angular
+
+        # --- Clamping Final ---
+        self.current_linear = max(min(self.current_linear, self.strict_max_linear), -self.strict_max_linear)
+        
+        msg_max_ang = abs(self.strict_max_angular)
+        self.current_angular = max(min(self.current_angular, msg_max_ang), -msg_max_ang)
+
+        # --- Conversion ROS ---
+        # PLUS DE 0.1 car tout est en m/s désormais
+        linear_x = self.current_linear
+        angular_z = math.radians(self.current_angular)
 
         return linear_x, angular_z, self.tir_demande
 

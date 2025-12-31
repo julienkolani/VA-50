@@ -55,20 +55,8 @@ def main():
         logger.info("")
         logger.info("Lancement de l'interface intégrée...")
         
-        # Obtient la configuration UI
-        ui_cfg = all_config.get('ui', {})
-        network_cfg = all_config.get('network', {})
-        
-        # Construit l'URI WebSocket depuis la config (network.yaml a 'uri' directement)
-        ws_cfg = network_cfg.get('websocket', {})
-        ws_uri = ws_cfg.get('uri', 'ws://localhost:8765')
-        
         # Crée et lance l'interface
-        ui = IntegratedUI(
-            width=ui_cfg.get('default_width', 1400),
-            height=ui_cfg.get('default_height', 900),
-            ws_uri=ws_uri
-        )
+        ui = IntegratedUI(config=all_config)
         ui.run()
         
         logger.info("Interface fermée normalement")

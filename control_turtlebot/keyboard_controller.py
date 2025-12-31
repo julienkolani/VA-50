@@ -5,37 +5,67 @@ Module Keyboard Controller
 
 import pygame
 import math
-import config
+
 
 
 class KeyboardController:
     """Contrôleur clavier configurable pour TurtleBot"""
 
-    def __init__(self, vitesse_factor=None):
-
-        cfg = config.get_keyboard_config()
-
+    def __init__(self, config):
+        """
+        Initialise le contrôleur clavier.
+        Args:
+            config (dict): Configuration globale (doit contenir 'controls' et 'robot')
+        """
+        ctrl_cfg = config.get('controls', {})
+        kb_cfg = ctrl_cfg.get('keyboard', {})
+        speed_cfg = ctrl_cfg.get('speed_control', {})
+        
         # Facteur de vitesse initial
-        self.vitesse_factor = (
-            vitesse_factor if vitesse_factor is not None
-            else config.INITIAL_SPEED_FACTOR
-        )
+        self.vitesse_factor = speed_cfg.get('initial_factor', 1.0)
 
         # États internes
         self.vitesse_lineaire = 0.0
         self.vitesse_angulaire = 0.0
         self.tir_demande = False
 
-        # Paramètres dépendant du facteur
-        self.accel_lineaire = cfg["accel_linear"] * self.vitesse_factor
-        self.accel_angulaire = cfg["accel_angular"] * self.vitesse_factor
+        # Paramètres (accel, friction)
+        self.accel_lineaire = kb_cfg.get('accel_linear', 0.2) * self.vitesse_factor
+        self.accel_angulaire = kb_cfg.get('accel_angular', 2.5) * self.vitesse_factor
+        self.friction = kb_cfg.get('friction_linear', 0.92)
+        self.friction_angulaire = kb_cfg.get('friction_angular', 0.82)
+        
+        # Rampes de lissage
+        self.ramp_linear = speed_cfg.get('acceleration_ramp_linear', 0.01)
+        self.ramp_angular = speed_cfg.get('acceleration_ramp_angular', 0.05)
+        
+        # -- Définition des VITESSES MAX --
+        # La config robot contient directement velocity_limits (pas imbriqué)
+        robot_cfg = config.get('robot', {})
+        robot_limits = robot_cfg.get('velocity_limits', {})
+        
+        # 1. Limite Absolue (Physique) en m/s et rad/s
+        self.limit_linear_mps = robot_limits.get('max_linear_mps', 0.22)
+        self.limit_angular_radps = robot_limits.get('max_angular_radps', 4.2)
+        
+        # 2. Vitesse Max Contrôleur (pour mapping Input -> Vitesse)
+        # On utilise directement la limite physique comme max atteignable à 100% de facteur
+        # (L'ancien code utilisait une valeur "interne" x10. On passe en SI : m/s et deg/s)
+        
+        # NOTE IMPORTANTE: Le code update() attend des degrés pour l'angulaire
+        # On va continuer à travailler en DEGRES pour l'angulaire interne pour l'instant
+        # pour minimiser les changements de logique, mais on clamp strict à la fin.
+        
+        self.vitesse_max_lineaire = self.limit_linear_mps * self.vitesse_factor
+        self.vitesse_max_angulaire = math.degrees(self.limit_angular_radps) * self.vitesse_factor
+        
+        # Limites strictes (constantes)
+        self.strict_max_linear = self.limit_linear_mps
+        self.strict_max_angular = math.degrees(self.limit_angular_radps)
 
-        self.vitesse_max_lineaire = cfg["max_linear"] * self.vitesse_factor
-        self.vitesse_max_angulaire = cfg["max_angular"] * self.vitesse_factor
-
-        self.friction = cfg["friction"]
-        self.friction_angulaire = cfg["friction_angular"]
-
+    # ============================================================
+    #   MISE À JOUR DU FACTEUR DE VITESSE (+ et -)
+    # ============================================================
     # ============================================================
     #   MISE À JOUR DU FACTEUR DE VITESSE (+ et -)
     # ============================================================
@@ -44,13 +74,9 @@ class KeyboardController:
         ratio = factor / self.vitesse_factor
         self.vitesse_factor = factor
 
-        cfg = config.get_keyboard_config()
-
-        # Recalcul des paramètres
-        self.accel_lineaire = cfg["accel_linear"] * factor
-        self.accel_angulaire = cfg["accel_angular"] * factor
-        self.vitesse_max_lineaire = cfg["max_linear"] * factor
-        self.vitesse_max_angulaire = cfg["max_angular"] * factor
+        # Recalcul des vitesses max basées sur les limites physiques
+        self.vitesse_max_lineaire = self.limit_linear_mps * self.vitesse_factor
+        self.vitesse_max_angulaire = math.degrees(self.limit_angular_radps) * self.vitesse_factor
 
         # Ajustement des vitesses actuelles
         self.vitesse_lineaire *= ratio
@@ -60,67 +86,47 @@ class KeyboardController:
     #   MISE À JOUR DES MOUVEMENTS
     # ============================================================
     def update(self, touches):
-
         self.tir_demande = False
 
-        # ----------------- CONTRÔLE LINÉAIRE -----------------
+        # --- Cibles de vitesse (Target Velocity) ---
+        target_linear = 0.0
+        target_angular = 0.0
+
+        # Linéaire
         if touches[pygame.K_UP] or touches[pygame.K_w]:
-            self.vitesse_lineaire = min(
-                self.vitesse_lineaire + self.accel_lineaire,
-                self.vitesse_max_lineaire
-            )
-
+            target_linear = self.vitesse_max_lineaire  # Déjà en m/s (si config correcte)
         elif touches[pygame.K_DOWN] or touches[pygame.K_s]:
-            self.vitesse_lineaire = max(
-                self.vitesse_lineaire - self.accel_lineaire,
-                -self.vitesse_max_lineaire
-            )
+            target_linear = -self.vitesse_max_lineaire
 
-        else:
-            # friction linéaire
-            self.vitesse_lineaire *= self.friction
-            if abs(self.vitesse_lineaire) < 0.05:
-                self.vitesse_lineaire = 0
+        # Angulaire
+        gauche = touches[pygame.K_LEFT] or touches[pygame.K_a]
+        droite = touches[pygame.K_RIGHT] or touches[pygame.K_d]
 
-        # ----------------- CONTRÔLE ANGULAIRE -----------------
-        gauche  = touches[pygame.K_LEFT] or touches[pygame.K_a]
-        droite  = touches[pygame.K_RIGHT] or touches[pygame.K_d]
-        avant   = touches[pygame.K_UP] or touches[pygame.K_w]
-        arriere = touches[pygame.K_DOWN] or touches[pygame.K_s]
-
-        # Correction du bug : inversion du sens en marche arrière
-        direction_factor = -1 if self.vitesse_lineaire < 0 else 1
-
-        if gauche and droite:
-            if avant:
-                self.vitesse_angulaire = self.vitesse_max_angulaire
-            elif arriere:
-                self.vitesse_angulaire = -self.vitesse_max_angulaire
-            else:
-                self.vitesse_angulaire *= self.friction_angulaire
-
-        elif gauche:
-            intensite = 1.0 + abs(self.vitesse_lineaire) * 0.3
-            self.vitesse_angulaire = max(
-                self.vitesse_angulaire - self.accel_angulaire * intensite * direction_factor,
-                -self.vitesse_max_angulaire * 0.6
-            )
-
+        # Correction : on tourne plus vite si on avance pas (pivot)
+        max_ang = self.vitesse_max_angulaire
+        if gauche:
+            target_angular = -max_ang  # Left = negative (clockwise from top view)
         elif droite:
-            intensite = 1.0 + abs(self.vitesse_lineaire) * 0.3
-            self.vitesse_angulaire = min(
-                self.vitesse_angulaire + self.accel_angulaire * intensite * direction_factor,
-                self.vitesse_max_angulaire * 0.6
-            )
+            target_angular = max_ang   # Right = positive (counter-clockwise)
 
-        else:
-            # friction angulaire
-            self.vitesse_angulaire *= self.friction_angulaire
-            if abs(self.vitesse_angulaire) < 0.2:
-                self.vitesse_angulaire = 0
+        # --- Application directe (pas de rampe) ---
+        # On applique la vitesse cible immédiatement
+        self.vitesse_lineaire = target_linear
+        self.vitesse_angulaire = target_angular
 
-        # ----------------- CONVERSION POUR ROS -----------------
-        linear_x = self.vitesse_lineaire * 0.1
+        # --- Clamping Final (Sécurité) ---
+        # On s'assure de ne jamais dépasser les limites configurées
+        self.vitesse_lineaire = max(min(self.vitesse_lineaire, self.strict_max_linear), -self.strict_max_linear)
+        
+        msg_max_ang = abs(self.strict_max_angular)
+        self.vitesse_angulaire = max(min(self.vitesse_angulaire, msg_max_ang), -msg_max_ang)
+
+        # --- Conversion pour ROS (Output) ---
+        # MAINTENANT EN SI (m/s) : Pas de multiplication par 0.1 !
+        # La logique interne: self.vitesse_lineaire est bornée par self.limit_linear_mps (ex: 0.22)
+        # Donc c'est DIRECTEMENT la valeur à envoyer.
+        
+        linear_x = self.vitesse_lineaire
         angular_z = math.radians(self.vitesse_angulaire)
 
         return linear_x, angular_z, self.tir_demande

@@ -8,5 +8,5 @@ websocket:
 
 command:
   frequency_hz: 30
-  k_linear: 6.0      # Linear velocity amplification
-  k_angular: 4.0     # Angular velocity amplification
+  k_linear: 1.0      # Linear velocity amplification
+  k_angular: 1.0     # Angular velocity amplification

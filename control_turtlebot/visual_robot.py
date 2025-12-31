@@ -5,19 +5,23 @@ Gère la représentation visuelle du robot dans l'interface
 """
 
 import pygame
+
 import math
 
 
 class VisualRobot:
     """Robot visuel pour la simulation dans l'interface"""
     
-    def __init__(self, x, y, angle=0):
+    def __init__(self, x, y, angle=0, config=None):
         self.x = x
         self.y = y
         self.angle = angle  # en degrés
         
+        # Config is already the 'visual' section, use directly
+        visual_cfg = config if config else {}
+        
+        self.max_trail_length = visual_cfg.get('trail_length', 80)
         self.trail = []  # Traînée
-        self.max_trail_length = 80
         
         # Position de repos (centre)
         self.rest_x = x
@@ -25,7 +29,12 @@ class VisualRobot:
         self.rest_angle = angle
         
         # Pour le retour au centre
-        self.return_speed = 0.15
+        self.return_speed = visual_cfg.get('return_speed', 0.15)
+        
+        # Échelles
+        self.speed_scale = visual_cfg.get('speed_scale', 1000)
+        self.angular_scale = visual_cfg.get('angular_scale', 5)
+        self.max_distance = visual_cfg.get('max_distance', 220)
     
     def update(self, linear_x, angular_z, dt=0.016):
         """Met à jour la position du robot selon les commandes"""
@@ -53,28 +62,24 @@ class VisualRobot:
                 self.angle = self.rest_angle
                 self.trail.clear()
         else:
+
             # Simulation du mouvement
-            # CORRECTION: Échelles équilibrées pour rotation et translation
-            speed_scale = 1000  # pixels par m/s
-            angular_scale = 5  # pixels par rad/s
-            
             # Rotation
             angular_deg = math.degrees(angular_z)
-            self.angle += angular_deg * angular_scale * dt
+            self.angle += angular_deg * self.angular_scale * dt
             
             # Translation
             angle_rad = math.radians(self.angle)
-            dx = math.sin(angle_rad) * linear_x * speed_scale * dt
-            dy = -math.cos(angle_rad) * linear_x * speed_scale * dt
+            dx = math.sin(angle_rad) * linear_x * self.speed_scale * dt
+            dy = -math.cos(angle_rad) * linear_x * self.speed_scale * dt
             
             self.x += dx
             self.y += dy
             
             # Limiter la zone de déplacement (pas trop loin du centre)
-            max_dist = 220
             dist = math.sqrt((self.x - self.rest_x)**2 + (self.y - self.rest_y)**2)
-            if dist > max_dist:
-                ratio = max_dist / dist
+            if dist > self.max_distance:
+                ratio = self.max_distance / dist
                 self.x = self.rest_x + (self.x - self.rest_x) * ratio
                 self.y = self.rest_y + (self.y - self.rest_y) * ratio
             

@@ -39,7 +39,7 @@ fonts:
   tiny_size: 14
 
 visual:
-  speed_scale: 1000 # pixels per m/s
+  speed_scale: 300 # pixels per m/s (reduced for realistic sim)
   angular_scale: 5 # pixels per rad/s
   max_distance: 220 # max distance from center (pixels)
   trail_length: 80 # length of robot trail

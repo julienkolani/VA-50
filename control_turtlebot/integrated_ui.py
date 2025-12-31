@@ -14,7 +14,7 @@ import pygame
 import math
 import time
 
-import config  # Chargement du thème
+
 from websocket_client import WebSocketClient
 from keyboard_controller import KeyboardController
 from ps3_controller import PS3Controller
@@ -40,93 +40,117 @@ class IntegratedUI:
     # -----------------------------------------------------
     #  INITIALISATION
     # -----------------------------------------------------
-    def __init__(self, width=None, height=None, ws_uri=None):
+    def __init__(self, config):
+        """
+        Initialise l'interface intégrée.
+        Args:
+            config (dict): Dictionnaire contenant toute la configuration
+                           (ui, network, robot, controls)
+        """
         pygame.init()
+        self.config = config
+        
+        # Sections spécifiques
+        ui_cfg = config.get('ui', {})
+        network_cfg = config.get('network', {})
+        robot_cfg = config.get('robot', {})
+        controls_cfg = config.get('controls', {})
 
-        ui_cfg = config.get_ui_config()
-
-        # Dimensions : priorité aux paramètres envoyés à __init__
-        self.width = width if width is not None else ui_cfg['default_width']
-        self.height = height if height is not None else ui_cfg['default_height']
-        self.info_width = ui_cfg['info_panel_width']
-
-        # WebSocket URI : priorité au paramètre constructor
-        self.ws_uri = ws_uri if ws_uri is not None else config.WEBSOCKET_URI
+        # 1. Config Fenêtre / UI
+        win_cfg = ui_cfg.get('window', {})
+        panel_cfg = ui_cfg.get('panels', {})
+        
+        self.width = win_cfg.get('default_width', 1200)
+        self.height = win_cfg.get('default_height', 700)
+        self.info_width = panel_cfg.get('info_width', 350) 
+        self.target_fps = win_cfg.get('target_fps', 60)
+        self.status_update_interval = panel_cfg.get('status_update_interval_s', 3.0)
 
         self.screen = pygame.display.set_mode(
             (self.width, self.height), pygame.RESIZABLE
         )
-        pygame.display.set_caption("TurtleBot Control - UI")
+        pygame.display.set_caption(win_cfg.get('title', "TurtleBot Controller"))
 
         self.clock = pygame.time.Clock()
 
-        # Thème moderne (couleurs + polices)
-        self.load_theme()
+        # Thème (couleurs + polices)
+        self.theme = ui_cfg.get('theme', {})
+        self.colors = self.theme.get('colors', {}) # Faudra gérer les defaults si vide
+        self.fonts_cfg = ui_cfg.get('fonts', {})
+        self.load_theme_fonts() # Refactor needed here if relying on defaults
 
-        # WebSocket client
-        self.ws_client = WebSocketClient(self.ws_uri)
+        # 2. Config WebSocket
+        ws_cfg_section = network_cfg.get('websocket', {})
+        self.ws_uri = ws_cfg_section.get('uri', "ws://localhost:8765")
+        
+        # Injecte la config réseau complète (pour K factors)
+        self.ws_client = WebSocketClient(self.ws_uri, config=network_cfg)
 
-        # Layout
+        # 3. Robot Visuel
+        # Layout initial
         self.update_layout(self.width, self.height)
-
-        # Robot visuel
         cx = self.sim_rect.centerx
         cy = self.sim_rect.centery
-        self.visual_robot = VisualRobot(cx, cy, 0)
+        
+        visual_cfg = ui_cfg.get('visual', {})
+        self.visual_robot = VisualRobot(cx, cy, 0, config=visual_cfg)
 
-        # Contrôleurs
-        ctrl_cfg = config.get_controller_config()
-        self.keyboard_controller = KeyboardController(
-            vitesse_factor=ctrl_cfg["initial_speed_factor"]
-        )
-        self.ps3_controller = PS3Controller(
-            vitesse_factor=ctrl_cfg["initial_speed_factor"]
-        )
+        # 4. Contrôleurs (Keyboard / PS3)
+        # On passe la section 'controls' mais aussi 'robot' pour les limites physiques
+        
+        # Construit un config object fusionné ou passe tout
+        controller_init_config = {
+            'controls': controls_cfg,
+            'robot': robot_cfg
+        }
+        
+        self.keyboard_controller = KeyboardController(config=controller_init_config)
+        self.ps3_controller = PS3Controller(config=controller_init_config)
 
         # Auto-detection manette
-        self.control_mode = "ps3" if self.ps3_controller.is_connected() else "keyboard"
+        if self.ps3_controller.is_connected():
+            self.control_mode = "ps3"
+            logger.info("Mode initial: Manette PS3")
+        else:
+            self.control_mode = "keyboard"
+            # logger.info("Mode initial: Clavier")
 
+        self.running = True
         self.last_status_request = 0
 
 
-    # -----------------------------------------------------
-    #  CHARGEMENT DU THÈME (couleurs + polices)
-    # -----------------------------------------------------
-    def load_theme(self):
-        colors = config.get_color_scheme()
 
-        # Couleurs
-        self.bg_color = colors["bg"]
-        self.panel_color = colors["panel"]
-        self.panel_accent = colors["panel_accent"]
-        self.text_color = colors["text"]
-        self.text_dim = colors["text_dim"]
-        self.text_bright = colors["text_bright"]
-        self.accent_color = colors["accent"]
-        self.accent_bright = colors["accent_bright"]
-        self.accent_dim = colors["accent_dim"]
-        self.success_color = colors["success"]
-        self.warning_color = colors["warning"]
-        self.error_color = colors["error"]
 
-        # Polices Roboto modernisées
-        # -----------------------------------------------------
-        #  Polices (avec fallback automatique)
-        # -----------------------------------------------------
-        def safe_font(path, size):
-            """Charge une police, ou fallback sur la police par défaut."""
-            try:
-                return pygame.font.Font(path, size)
-            except FileNotFoundError:
-                print(f"[UI] Police introuvable : {path} - utilisation de la police par defaut.")
-                return pygame.font.Font(None, size)
+    def load_theme_fonts(self):
+        """Charge les polices et couleurs depuis la config."""
+        # Couleurs (fallback si config vide)
+        self.bg_color = tuple(self.colors.get('background', (15, 15, 20)))
+        self.panel_color = tuple(self.colors.get('panel', (25, 28, 35)))
+        self.panel_accent = tuple(self.colors.get('panel_accent', (35, 40, 50)))
+        
+        self.text_color = tuple(self.colors.get('text', (230, 230, 235)))
+        self.text_dim = tuple(self.colors.get('text_dim', (150, 150, 160)))
+        self.text_bright = tuple(self.colors.get('text_bright', (255, 255, 255)))
+        
+        self.accent_color = tuple(self.colors.get('accent', (0, 230, 255)))
+        self.accent_bright = tuple(self.colors.get('accent_bright', (100, 240, 255)))
+        self.accent_dim = tuple(self.colors.get('accent_dim', (0, 180, 200)))
+        
+        self.success_color = tuple(self.colors.get('success', (50, 255, 150)))
+        self.warning_color = tuple(self.colors.get('warning', (255, 180, 0)))
+        self.error_color = tuple(self.colors.get('error', (255, 80, 100)))
 
-        # Polices Roboto (si absentes -> police par defaut)
-        self.font_titre = safe_font("assets/Roboto-Bold.ttf", config.FONT_SIZE_TITLE)
-        self.font_sub = safe_font("assets/Roboto-Medium.ttf", config.FONT_SIZE_SUBTITLE)
-        self.font_normal = safe_font("assets/Roboto-Regular.ttf", config.FONT_SIZE_NORMAL)
-        self.font_small = safe_font("assets/Roboto-Light.ttf", config.FONT_SIZE_SMALL)
-        self.font_tiny = safe_font("assets/Roboto-Light.ttf", config.FONT_SIZE_TINY)
+        # Polices
+        sizes = self.fonts_cfg
+        try:
+            self.font_title = pygame.font.Font(None, sizes.get('title_size', 36))
+            self.font_sub = pygame.font.Font(None, sizes.get('subtitle_size', 28))
+            self.font_normal = pygame.font.Font(None, sizes.get('normal_size', 24))
+            self.font_small = pygame.font.Font(None, sizes.get('small_size', 20))
+            self.font_tiny = pygame.font.Font(None, sizes.get('tiny_size', 16))
+        except Exception as e:
+            # logger.error(f"Erreur chargement polices: {e}")
+            self.font_normal = pygame.font.Font(None, 24)
 
     # -----------------------------------------------------
     #  MISE EN PAGE
@@ -155,7 +179,8 @@ class IntegratedUI:
     def draw_shadow(self, rect, size=12):
         """Ombre portée moderne"""
         shadow = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-        pygame.draw.rect(shadow, config.COLOR_SHADOW, shadow.get_rect(), border_radius=12)
+        # Utilisation d'une valeur fixe pour l'ombre (0,0,0,80) car config globale supprimée
+        pygame.draw.rect(shadow, (0, 0, 0, 80), shadow.get_rect(), border_radius=12)
         self.screen.blit(shadow, (rect.x + size, rect.y + size))
 
     def draw_subpanel(self, x, y, w, h, radius=12):
@@ -180,8 +205,8 @@ class IntegratedUI:
 
     def pulse_color(self, base_color):
         """Couleur pulsante douce pour l'État connexion, FPS…"""
-        pulse = (math.sin(time.time() * config.ANIMATION_PULSE_SPEED) + 1) / 2
-        factor = lerp(0.75, 1.25, pulse)
+        pulse = (math.sin(time.time() * 2.0) + 1) / 2 # 2.0 = pulse speed default
+        factor = 0.75 + (1.25 - 0.75) * pulse # lerp manual impl
         return tuple(min(int(c * factor), 255) for c in base_color)
 
     # -----------------------------------------------------
@@ -288,13 +313,13 @@ class IntegratedUI:
 
         # Titre
         mode_icon = "[PS3]" if self.control_mode == "ps3" else "[KB]"
-        surf = self.font_titre.render(f"MICRO-SIMULATION {mode_icon}", True, self.accent_bright)
+        surf = self.font_title.render(f"MICRO-SIMULATION {mode_icon}", True, self.accent_bright)
         rect = surf.get_rect(center=(cx, self.sim_rect.y + 40))
         self.screen.blit(surf, rect)
 
         # Grille
         spacing = 50
-        gc = config.COLOR_GRID
+        gc = self.colors.get('grid', (35, 38, 45))
         for i in range(self.sim_rect.left + 20, self.sim_rect.right - 20, spacing):
             pygame.draw.line(self.screen, gc,
                              (i, self.sim_rect.top + 80),
@@ -332,7 +357,7 @@ class IntegratedUI:
                              (self.visual_robot.rest_x, self.visual_robot.rest_y))
 
             if dist < 2:
-                surf = self.font_titre.render("EN ATTENTE", True, self.text_dim)
+                surf = self.font_title.render("EN ATTENTE", True, self.text_dim)
                 self.screen.blit(surf, surf.get_rect(center=(cx, cy - 60)))
 
                 hint = "Flèches / WASD" if self.control_mode == "keyboard" else "Stick gauche"
@@ -353,7 +378,7 @@ class IntegratedUI:
             return
 
         running = True
-        cmd_freq = config.COMMAND_FREQUENCY
+        cmd_freq = 20.0
         cmd_interval = 1.0 / cmd_freq
         last_cmd_time = time.time()
 
@@ -385,14 +410,16 @@ class IntegratedUI:
 
                     # Vitesse
                     if event.key in (pygame.K_EQUALS, pygame.K_KP_PLUS):
-                        new = min(config.MAX_SPEED_FACTOR,
-                                  self.keyboard_controller.vitesse_factor + config.SPEED_INCREMENT)
+                        # Increments = 0.1, Max = 2.0
+                        new = min(2.0,
+                                  self.keyboard_controller.vitesse_factor + 0.1)
                         self.keyboard_controller.set_vitesse_factor(new)
                         self.ps3_controller.set_vitesse_factor(new)
 
                     if event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
-                        new = max(config.MIN_SPEED_FACTOR,
-                                  self.keyboard_controller.vitesse_factor - config.SPEED_INCREMENT)
+                        # Decrements = 0.1, Min = 0.1
+                        new = max(0.1,
+                                  self.keyboard_controller.vitesse_factor - 0.1)
                         self.keyboard_controller.set_vitesse_factor(new)
                         self.ps3_controller.set_vitesse_factor(new)
 
@@ -414,7 +441,7 @@ class IntegratedUI:
                 last_cmd_time = now
 
             # Status régulier
-            if now - self.last_status_request >= config.STATUS_UPDATE_INTERVAL:
+            if now - self.last_status_request >= self.status_update_interval:
                 self.ws_client.request_status()
                 self.last_status_request = now
 
@@ -426,6 +453,6 @@ class IntegratedUI:
             self.draw_simulation_panel(linear_x, angular_z)
 
             pygame.display.flip()
-            self.clock.tick(config.TARGET_FPS)
+            self.clock.tick(self.target_fps)
 
         pygame.quit()

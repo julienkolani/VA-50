@@ -17,31 +17,59 @@ import json
 import threading
 import time
 from queue import Queue, Empty
-import config
 
 
 class WebSocketClient:
     """Client WebSocket thread-safe avec reconnexion automatique"""
     
-    def __init__(self, uri="ws://localhost:8765"):
+    # ========================================================================
+    #   INITIALISATION
+    # ========================================================================
+    def __init__(self, uri, config):
+        """
+        Initialise le client WebSocket.
+        Args:
+            uri (str): URI du serveur (ex: "ws://localhost:9090")
+            config (dict): Configuration réseau (doit contenir les sections requises)
+        """
         self.uri = uri
+        self.config = config
+        
+        # Configuration réseau
+        ws_cfg = config.get('websocket', {})
+        cmd_cfg = config.get('command', {})
+        
+        self.reconnect_delay = ws_cfg.get('reconnect_delay_s', 2.0)
+        self.ping_interval = ws_cfg.get('ping_interval_s', 3.0)
+        
+        # Facteurs d'amplification
+        self.k_linear = cmd_cfg.get('k_linear', 1.0)
+        self.k_angular = cmd_cfg.get('k_angular', 1.0)
+
         self.websocket = None
         self.connected = False
-        self.running = False
-        self.send_queue = Queue()
+        self.send_queue = Queue()  # Thread-safe queue
+        self.loop = asyncio.new_event_loop()
+        self.thread = threading.Thread(target=self._run_async, daemon=True) # Changed target name to match existing _run_async
+        self.running = True
         
-        self.last_status = "Déconnecté"
+        # Stats
+        # Stats
+        self.stats = {
+            "sent": 0,
+            "accepted": 0,
+            "rejected": 0,
+            "safety_info": {}
+        }
         self.commands_sent = 0
-        self.commands_rejected = 0
         self.commands_accepted = 0
-        self.safety_info = {}
-        
+        self.commands_rejected = 0
+        # Renamed and consolidated stats
+        self.last_status = "Déconnecté" # Kept for compatibility with existing code
+        self.safety_info = {} # Kept for compatibility with existing code
+
         self.connection_attempts = 0
         self.last_connection_attempt = 0
-        self.reconnect_delay = 2.0
-        
-        self.loop = None
-        self.thread = None
         
         self.last_latency = 0
         self.avg_latency = 0
@@ -147,14 +175,28 @@ class WebSocketClient:
                     msg_type, data = self.send_queue.get_nowait()
                     
                     if msg_type == 'cmd_vel':
+                        # Clamp final de sécurité avant envoi
+                        SAFE_MAX_LINEAR = 1.0
+                        SAFE_MAX_ANGULAR = 5.0 # rad/s
+                        
+                        linear_x = max(min(data['linear_x'], SAFE_MAX_LINEAR), -SAFE_MAX_LINEAR)
+                        angular_z = max(min(data['angular_z'], SAFE_MAX_ANGULAR), -SAFE_MAX_ANGULAR)
+
+                        # Format attendu par safety_bridge (NOT rosbridge)
+                        # NOTE: angular_z inversé pour correspondre à la convention hardware du TurtleBot
+                        final_linear = linear_x * self.k_linear
+                        final_angular = -angular_z * self.k_angular  # Inversion pour hardware
                         message = {
-                            'type': 'cmd_vel',
-                            'linear_x': config.K_LINEAR * data['linear_x'],
-                            'angular_z': config.K_ANGULAR * data['angular_z'],
-                            'timestamp': time.time()
+                            "type": "cmd_vel",
+                            "linear_x": final_linear,
+                            "angular_z": final_angular
                         }
                         await self.websocket.send(json.dumps(message))
                         self.commands_sent += 1
+                        
+                        # Debug: Affiche les vitesses envoyées (toutes les 20 commandes)
+                        if self.commands_sent % 20 == 1:
+                            print(f"[WS] CMD #{self.commands_sent}: linear={final_linear:.3f} m/s, angular={final_angular:.3f} rad/s")
                     
                     elif msg_type == 'emergency_stop':
                         message = {
@@ -165,27 +207,14 @@ class WebSocketClient:
                         print("[WS] ARRET D'URGENCE envoye!")
                     
                     elif msg_type == 'get_status':
-                        message = {
-                            'type': 'get_status',
-                            'timestamp': time.time()
-                        }
-                        await self.websocket.send(json.dumps(message))
+                        # Disabled - rosbridge doesn't understand custom 'get_status' type
+                        pass
                 
                 except Empty:
                     pass
                 
                 now = time.time()
-                if now - last_ping >= ping_interval:
-                    try:
-                        ping_time = time.time()
-                        message = {
-                            'type': 'ping',
-                            'timestamp': ping_time
-                        }
-                        await self.websocket.send(json.dumps(message))
-                        last_ping = now
-                    except:
-                        pass
+                # Ping disabled - rosbridge doesn't understand custom 'ping' type
                 
                 await asyncio.sleep(0.01)
             
@@ -240,7 +269,8 @@ class WebSocketClient:
                     
                     elif msg_type == 'error':
                         reason = data.get('reason', 'Inconnu')
-                        print(f"[WS] Erreur serveur: {reason}")
+                        if 'Unknown message type' not in reason:
+                            print(f"[WS] Erreur serveur: {reason}")
                 
                 except json.JSONDecodeError as e:
                     print(f"[WS] Erreur decodage JSON: {e}")
