@@ -7,21 +7,8 @@ Système de jeu en réalité augmentée opposant deux robots TurtleBot dans une 
 ```
 VA-51/
 ├── tank_project/        # Jeu principal (IA, Vision, Game Engine)
-├── control_turtlebot/   # Interface de contrôle manuel
-├── turtlebot_game/      # ROS2 Safety Bridge
-└── launch_game.sh       # Script de lancement unifié
-```
-
-## Lancement Rapide
-
-```bash
-# Lancer tout (Bridge + Jeu)
-./launch_game.sh
-
-# Options
-./launch_game.sh --bridge   # Bridge ROS2 seul
-./launch_game.sh --game     # Jeu seul
-./launch_game.sh --control  # Interface contrôle manuel
+├── control_turtlebot/   # Interface de contrôle
+└── turtlebot_game/      # ROS2 Bridge
 ```
 
 ## Prérequis

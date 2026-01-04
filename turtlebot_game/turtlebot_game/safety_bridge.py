@@ -586,8 +586,7 @@ class ROSBridge(Node):
 def main(args=None):
     """Point d'entrée principal"""
     print("\n" + "╔" + "═"*58 + "╗")
-    print("║" + " "*8 + " TURTLEBOT WEBSOCKET BRIDGE ROS2 " + " "*13 + "║")
-    print("║" + " "*12 + "Version 2.1 - Bridge Simple & Propre" + " "*9 + "║")
+    print("║" + " "*8 + " TURTLEBOT WEBSOCKET BRIDGE " + " "*13 + "║")
     print("╚" + "═"*58 + "╝\n")
     
     rclpy.init(args=args)
@@ -602,7 +601,7 @@ def main(args=None):
         ws_thread.start()
         
         print(" Bridge initialisé")
-        print(" Attendez le message ' SERVEUR WEBSOCKET ACTIF'...\n")
+        print(" Attente du serveur WebSocket...\n")
         
         import time
         time.sleep(2)
@@ -617,7 +616,7 @@ def main(args=None):
     
     except Exception as e:
         print("\n╔" + "═"*58 + "╗")
-        print("║" + " "*20 + " ERREUR FATALE" + " "*23 + "║")
+        print("║" + " "*20 + " ERREUR " + " "*23 + "║")
         print("╠" + "═"*58 + "╣")
         print(f"║ {type(e).__name__}: {str(e)[:45]:<45} ║")
         print("╚" + "═"*58 + "╝\n")

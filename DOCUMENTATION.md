@@ -2,15 +2,15 @@
 
 ## Introduction
 
-Le projet VA-51 Tank Arena est un système de jeu en réalité augmentée innovant qui oppose deux robots TurtleBot dans un combat stratégique. L'un des robots est contrôlé par une intelligence artificielle sophistiquée basée sur un arbre de comportement, tandis que l'autre est piloté par un joueur humain via une manette PS3 ou un clavier.
+Le projet VA-51 Tank Arena est un système de jeu en réalité augmentée qui oppose deux robots TurtleBot dans un combat. L'un des robots est contrôlé par une intelligence artificielle basée sur un arbre de comportement, tandis que l'autre est piloté par un joueur humain via une manette PS3 ou un clavier.
 
-Le système repose sur une architecture modulaire qui intègre vision par ordinateur, planification de trajectoire, et projection interactive. Une caméra Intel RealSense capture en temps réel la position des robots grâce à des marqueurs ArUco, tandis qu'un projecteur affiche les éléments de jeu directement sur l'arène physique, créant ainsi une expérience de réalité augmentée immersive.
+Le système repose sur une architecture de vision par ordinateur, planification de trajectoire, et projection interactive. Une caméra Intel RealSense capture en temps réel la position des robots grâce à des marqueurs ArUco, tandis qu'un projecteur affiche les éléments de jeu directement sur l'arène physique, créant ainsi une expérience de réalité augmentée immersive.
 
 ---
 
 ## Architecture Globale
 
-L'architecture du système suit le principe de séparation des responsabilités. Chaque module a un rôle bien défini et communique avec les autres via des interfaces claires.
+L'architecture du système :
 
 ```mermaid
 flowchart TB
@@ -212,7 +212,6 @@ Le système est entièrement configurable via des fichiers YAML :
 
 ## Boucle Principale
 
-Le script `run_game.py` orchestre l'ensemble du système dans une boucle à 30 FPS :
 
 ```mermaid
 flowchart TB
@@ -229,9 +228,3 @@ flowchart TB
 ```
 
 Cette boucle assure la synchronisation de tous les composants et maintient une latence minimale entre la détection des robots et leur contrôle.
-
----
-
-## Conclusion
-
-Le projet VA-51 Tank Arena démontre l'intégration réussie de technologies avancées : vision par ordinateur, intelligence artificielle comportementale, et robotique mobile. L'architecture modulaire facilite la maintenance et l'extension du système, tandis que la configuration externe permet d'ajuster le gameplay sans modification du code.
