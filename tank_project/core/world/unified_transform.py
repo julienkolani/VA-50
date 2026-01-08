@@ -1,5 +1,4 @@
 """
-Système de Transformation Unifié - Version 2.0
 -----------------------------------------------
 Utilise l'homographie directe Caméra → Projecteur calculée par le wizard.
 Charge les données de calibration depuis un fichier JSON.
@@ -23,7 +22,7 @@ class UnifiedTransform:
     Gestionnaire de transformations unifié.
     
     Utilise l'homographie directe H_CamToProj pour toutes les transformations.
-    L'échelle pixels_per_meter permet la conversion vers/depuis les mètres.
+    L'échelle pixels_per_meter permet la conversion vers le mètres.
     """
     
     def __init__(self, calibration_path: str = None):
@@ -76,7 +75,7 @@ class UnifiedTransform:
             else:
                 config_path = filepath.parent
             
-            # Essayer le nouveau format hybride (NPZ + JSON)
+            # format hybride (NPZ + JSON)
             npz_path = config_path / "calibration.npz"
             meta_path = config_path / "calibration_meta.json"
             
@@ -96,8 +95,8 @@ class UnifiedTransform:
             return False
     
     def _load_hybrid(self, npz_path: Path, meta_path: Path) -> bool:
-        """Charge le format hybride NPZ + JSON."""
-        print(f"[TRANSFORM] Chargement format hybride...")
+        """Charge le format  NPZ + JSON."""
+        print(f"[TRANSFORM] Chargement format NPZ + JSON...")
         
         # 1. Matrices depuis NPZ
         data = np.load(npz_path)

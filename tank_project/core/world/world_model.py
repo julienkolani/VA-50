@@ -135,9 +135,10 @@ class WorldModel:
         # Vérifie l'occupation
         return not self.grid.is_occupied(x, y)
     
+    
     def get_state_dict(self) -> Dict:
         """
-        Exporte l'état complet du monde sous forme de dictionnaire.
+        Export de l'état complet du monde sous forme de dictionnaire.
         
         Utilisé par l'IA, le moteur de jeu, la visualisation.
         

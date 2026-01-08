@@ -165,10 +165,10 @@ class OccupancyGrid:
         # 2. Conversion Mètres -> Cellules (dynamique selon résolution)
         radius_cells = int(np.ceil(total_inflation_m / self.resolution))
         
-        # 3. Calcul du Kernel pour OpenCV (doit être impair: 3x3, 5x5, 7x7...)
+        # 3. Calcul du Kernel pour OpenCV qui doit être impair
         kernel_size = (radius_cells * 2) + 1
         
-        print(f"[GRID] Inflation calculée :")
+        print(f"[GRID] l'Inflation calculée :")
         print(f"       Robot : {robot_radius_m}m + Marge : {safety_margin_m}m = {total_inflation_m}m")
         print(f"       Cellules : {total_inflation_m:.3f}m / {self.resolution}m = {radius_cells} cellules")
         print(f"       Noyau OpenCV : {kernel_size}x{kernel_size}")

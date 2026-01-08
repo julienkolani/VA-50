@@ -151,3 +151,15 @@
   150  ros2 launch turtlebot_game safety_bridge.launch.py
 ➜  ros2_ws 
 
+
+
+python -m perception.calibration.standalone_wizard
+python -m scripts.show_grid
+
+python -m core.tasks.navigation
+python -m core.tasks.combat
+
+python -m core.tasks.survival
+python -m core.tasks.brain
+
+ python -m main

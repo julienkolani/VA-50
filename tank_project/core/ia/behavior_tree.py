@@ -13,7 +13,7 @@ from enum import Enum
 from typing import Dict, List, Optional
 
 # --- CONFIG DEFAULTS ---
-# Ces valeurs peuvent être surchargées par la config YAML
+# du coup les valeurs peuvent être surchargé par la config YAML # a coder apres
 DEFAULT_BT_CONFIG = {
     "min_state_duration_s": 0.40,
     "min_state_duration_by_state_s": {

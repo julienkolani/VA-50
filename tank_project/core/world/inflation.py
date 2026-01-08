@@ -17,9 +17,9 @@ from scipy.ndimage import distance_transform_edt
 
 class CostmapInflation:
     """
-    Gonfle les obstacles dans la costmap pour une planification sûre.
+    Gonfle les obstacles dans la costmap pour une planification avec a start
     
-    Crée un gradient de coût autour des obstacles.
+    Crée un gradient de coût autour des obstacles
     """
     
     def __init__(self, inflation_radius_m: float, resolution_m: float):
